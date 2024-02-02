@@ -94,7 +94,7 @@ def main():
     # Create the endless generator
     nmea_generator = endless_lines_generator(nmea_data)
     
-    PORT = 2000
+    PORT = 65432
 
     hostname = socket.gethostname()
     host = '' 
