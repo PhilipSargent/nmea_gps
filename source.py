@@ -7,12 +7,14 @@ Navionics where the location  must be within the scope of a purchased chart.
 """
 
 import socket
+import signal
 import time
+import errno
 # Replace with your actual TCP server details
 
 
 
-RECONNECT_DELAY = 15 # seconds
+RECONNECT_DELAY = 5 # seconds
 LINE_DELAY = 0.333
 
 nmea_data = """$GPGGA,213340.649,3729.856,N,02327.091,E,1,12,1.0,0.0,M,0.0,M,,*6A
@@ -92,7 +94,6 @@ def endless_lines_generator(long_string):
 
 def main():
     # Create the endless generator
-    nmea_generator = endless_lines_generator(nmea_data)
     
     PORT = 65432
 
@@ -100,27 +101,113 @@ def main():
     host = '' 
     #s = socket.socket()  # Create a socket object
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind((hostname, PORT))  # Bind to the port
-    s.listen(5)  # Now wait for client connection.
-    print(f'Server listening on {PORT}....')   
+    s.setblocking(False)
+    s.listen(5) # 5 allowable unaccepted connections waiting
+    print(f'Server {hostname} listening on {PORT}....')   
     conn, address = s.accept()  # Establish connection with client.                    
     print('Got connection from', address)
     
 
          
     with conn:
-        while True:
-            # Adjust delay as needed
-            time.sleep(LINE_DELAY)
-            line = next(nmea_generator)
-            print(line)
-            line = line + "\r\n"
-            byt = line.encode()
-            # data = conn.recv(1024)
-            # if not data:
-                # break
-            conn.send(byt)
+        handle_client(conn)
+ 
+def handle_client(conn):
+    while True:
+        # Adjust delay as needed
+        time.sleep(LINE_DELAY)
+        line = next(nmea_generator)
+        print(line)
+        line = line + "\r\n"
+        byt = line.encode()
+        conn.send(byt)
 
-    
+def main2():
+
+    hostname = socket.gethostname()
+    host = '' 
+    PORT = 65432
+    CONTROL_CODES = [b'\x03', b'\x04', b'\x06', b'\x1b']  # ^C, ^D, ^F, ESC
+    # telnet always sends ^F \x06 when user types ^Z or ^C
+     
+    def handle_client(conn):
+        try:
+            while True:
+                time.sleep(LINE_DELAY)
+                # Send data to the client, a line every 0.3s or so
+                line = next(nmea_generator)
+                print(line)
+                line = line + "\r\n"
+                byt = line.encode()
+                conn.sendall(byt)
+
+                # Check for control sequences from the client
+                try:
+                    data = conn.recv(1)
+                except socket.error as e:
+                    err = e.args[0]
+                    if err == errno.EAGAIN or err == errno.EWOULDBLOCK:
+                        #time.sleep(1)
+                        #print('No data available')
+                        continue
+                    else:
+                        # a "real" error occurred
+                        print(e)
+                        sys.exit(1)
+                if data in CONTROL_CODES:
+                    print(f"Client indicated a wish to quit with '{data}'")
+                    conn.sendall("The server respects the wish of the client to detach.\r\n".encode())
+                    return
+                else:
+                    print(f"Mystery data '{data}'")
+        except ConnectionError:
+            # Client disconnected gracefully
+            print("Connection error")
+
+    def signal_handler(sig, frame):
+        print("\nReceived shutdown signal, exiting...")
+        quit()
+
+
+    # Register signal handler for graceful shutdown of server
+    # from ctrl-C on the server process
+    signal.signal(signal.SIGINT, signal_handler)
+
+    # Create a non-blocking server socket
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+ 
+    # Bind the socket to the address and port
+    server.bind((host, PORT))
+    #server.setblocking(False)
+
+    # Listen for incoming connections
+    server.listen(5) # 5 allowable unaccepted connectins waiting
+    print(f"Server listening on {host}:{PORT}")
+
+    while True:
+        try:
+            # Accept a new connection
+            print(f"Attempting connection")
+            conn, addr = server.accept()
+            print(f"Connected by {addr}")
+            conn.setblocking(False)
+
+            handle_client(conn) # will only return if error or client closes down
+
+            break
+            
+        except BlockingIOError:
+            # No connection available, continue waiting
+            print("..waiting")
+ 
+        time.sleep(RECONNECT_DELAY)
+
+    server.shutdown(socket.SHUT_RDWR)
+    server.close()
+
 if __name__ == "__main__":
-  main()
+    nmea_generator = endless_lines_generator(nmea_data)
+    main2()
