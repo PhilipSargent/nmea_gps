@@ -92,38 +92,6 @@ def endless_lines_generator(long_string):
             yield line
  
 
-def main():
-    # Create the endless generator
-    
-    PORT = 65432
-
-    hostname = socket.gethostname()
-    host = '' 
-    #s = socket.socket()  # Create a socket object
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind((hostname, PORT))  # Bind to the port
-    s.setblocking(False)
-    s.listen(5) # 5 allowable unaccepted connections waiting
-    print(f'Server {hostname} listening on {PORT}....')   
-    conn, address = s.accept()  # Establish connection with client.                    
-    print('Got connection from', address)
-    
-
-         
-    with conn:
-        handle_client(conn)
- 
-def handle_client(conn):
-    while True:
-        # Adjust delay as needed
-        time.sleep(LINE_DELAY)
-        line = next(nmea_generator)
-        print(line)
-        line = line + "\r\n"
-        byt = line.encode()
-        conn.send(byt)
-
 def main2():
 
     hostname = socket.gethostname()
@@ -143,7 +111,7 @@ def main2():
                 byt = line.encode()
                 conn.sendall(byt)
 
-                # Check for control sequences from the client
+                # Check for control sequences from the client. This is non-blocking, so an exception will happen every time.
                 try:
                     data = conn.recv(1)
                 except socket.error as e:
@@ -167,21 +135,23 @@ def main2():
             print("Connection error")
 
     def signal_handler(sig, frame):
+        """Clean exit when pressing ^C at the terminal when running this code manually,
+         but ^Z still leaves all the sockets hanging"""
         print("\nReceived shutdown signal, exiting...")
+        server.shutdown(socket.SHUT_RDWR)
+        server.close()
         quit()
-
 
     # Register signal handler for graceful shutdown of server
     # from ctrl-C on the server process
     signal.signal(signal.SIGINT, signal_handler)
 
-    # Create a non-blocking server socket
+    # Create a server socket
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
- 
+
     # Bind the socket to the address and port
     server.bind((host, PORT))
-    #server.setblocking(False)
 
     # Listen for incoming connections
     server.listen(5) # 5 allowable unaccepted connectins waiting
@@ -190,7 +160,7 @@ def main2():
     while True:
         try:
             # Accept a new connection
-            print(f"Attempting connection")
+            #print(f"Attempting connection to interested client")
             conn, addr = server.accept()
             print(f"Connected by {addr}")
             conn.setblocking(False)
