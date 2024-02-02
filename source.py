@@ -10,7 +10,6 @@ import socket
 import time
 # Replace with your actual TCP server details
 
-PORT = 2000
 
 
 RECONNECT_DELAY = 15 # seconds
@@ -95,34 +94,32 @@ def main():
     # Create the endless generator
     nmea_generator = endless_lines_generator(nmea_data)
     
+    PORT = 2000
+
     hostname = socket.gethostname()
     host = '' 
-    s = socket.socket()  # Create a socket object
-    s.bind(('localhost', PORT))  # Bind to the port
+    #s = socket.socket()  # Create a socket object
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind((hostname, PORT))  # Bind to the port
     s.listen(5)  # Now wait for client connection.
-    print('Server listening....')   
+    print(f'Server listening on {PORT}....')   
     conn, address = s.accept()  # Establish connection with client.                    
     print('Got connection from', address)
     
-    # while True:
-        # try:
-            # data = conn.recv(1024)
-            # print('Server received', data.decode())
-
-        # except socket.error as e:
-            # print(f"Cannot connect to {hostname} '{e}'")
-            # print(f"Retrying in {RECONNECT_DELAY} seconds...")
-            # time.sleep(RECONNECT_DELAY)   
 
          
-    while True:
-        # Adjust delay as needed
-        time.sleep(LINE_DELAY)
-        line = next(nmea_generator)
-        print(line)
-        line = line + "\r\n"
-        byt = line.encode()
-        conn.send(byt)
+    with conn:
+        while True:
+            # Adjust delay as needed
+            time.sleep(LINE_DELAY)
+            line = next(nmea_generator)
+            print(line)
+            line = line + "\r\n"
+            byt = line.encode()
+            # data = conn.recv(1024)
+            # if not data:
+                # break
+            conn.send(byt)
 
     
 if __name__ == "__main__":
