@@ -16,7 +16,14 @@ from pathlib import Path
 from datetime import datetime, date, time
 
 from pynmeagps.nmeareader import NMEAReader
-
+from pynmeagps.nmeatypes_core import (
+    ERR_LOG,
+    ERR_RAISE,
+    GET,
+    NMEA_HDR,
+    VALCKSUM,
+    VALMSGID,
+)
 global msgcount, msggood
 
 class NewDay(Exception):
