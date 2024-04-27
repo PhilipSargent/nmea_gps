@@ -30,7 +30,7 @@ def parsestream(nmr, af):
     global msgcount, msggood
 
     for (raw, parsed_data) in nmr:
-        if not parsed_data:
+        if not parsed_data or '__dict__' not in parsed_data:
             # skip unparseable, even if there is no exception thrown
             print(raw)
             continue
@@ -112,6 +112,7 @@ def readstream(stream: socket.socket):
 
     nmr = NMEAReader(
         stream,
+        quitonerror = ERR_RAISE,
     )
     file_bufsize = 1024
     archivedir = Path(start.strftime('%Y-%m'))
