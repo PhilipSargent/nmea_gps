@@ -60,10 +60,8 @@ def parsestream(nmr, af):
             else:
                 thisday = d['date']            
                 if thisday != lastday:
-                    print("++ NEXT DAY")
+                    # print("++ NEXT DAY")
                     raise NewDay
-                # if msggood > 5000:
-                    # raise NewDay
                            
         if 'thisday' not in locals():
             # print("-- No date yet...")
@@ -71,15 +69,15 @@ def parsestream(nmr, af):
 
         if 'time' in d:
             t = d['time']
-            if 'thistime' not in locals():
-                thistime = t
-                lasttime = thistime
-            else:
-                thistime = t
-                today = date.today()
-                thisd = datetime.combine(today, thistime)
-                lastd = datetime.combine(today, lasttime)
-                duration = thisd - lastd
+            # if 'thistime' not in locals():
+                # thistime = t
+                # lasttime = thistime
+            # else:
+                # thistime = t
+                # today = date.today()
+                # thisd = datetime.combine(today, thistime)
+                # lastd = datetime.combine(today, lasttime)
+                # duration = thisd - lastd
                 # if duration.seconds > 60:
                     # print("++ NEXT ~")
                     # raise NewDay
