@@ -2,6 +2,11 @@
 nmealogger.py
 Philip Sargent
 
+TO DO Stop it starting if it is already running and working!, or kill the one that is running and force it to start a new 
+nmea output file
+
+archive raw NMEA which stays on the SD card but also filtered NMEA which gets uploaded once an hour.
+
 Derived from nmeasocket.py
     A simple example implementation of a GNSS socket reader
     using the pynmeagps.NMEAReader iterator functions.
@@ -123,7 +128,6 @@ def readstream(stream: socket.socket):
     parentdir = Path(__file__).parent.parent
     archivedir = parentdir / Path("nmea_data") / Path(start.strftime('%Y-%m'))
     archivedir.mkdir(parents=True, exist_ok=True)
-    print(parentdir, archivedir)
     
     while True:
         msgcount = 0
@@ -164,7 +168,7 @@ def readstream(stream: socket.socket):
 
 if __name__ == "__main__":
 
-    SERVER = "192.168.8.60"
+    SERVER = "192.168.8.60" # the QK-A026
     PORT = 2000
 
     print(f"Opening socket {SERVER}:{PORT}...")

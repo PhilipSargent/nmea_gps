@@ -1,0 +1,7 @@
+# Minute Hour DayOfMonth Month DayOfWeek Command
+# 11 1 * * * runs at 01:11 every day.
+# 7 * * * * runs every hour at 7 mins past
+# */5 * * * * runs every 5 minutes, checks the logger is still running
+11 1 * * * /root/nmea_gps/code/copyscript.sh >/root/code_data/cp_ok.txt 2>/root/code_data/cp_error.txt
+7 * * * * /root/nmea_gps/code/copynmea.sh >/root/code_data/cn_ok.txt 2>/root/code_data/cn_error.txt
+*/05 * * * * pgrep -f "[n]mealogger" > /dev/null || python /root/nmea_gps/nmealogger.py

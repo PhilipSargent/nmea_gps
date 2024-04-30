@@ -1,6 +1,7 @@
 #!/bin/sh 
 # updated  30 April 2024
 # now under git
+# started by crontab, once a day at 01:11
 eval $(ssh-agent -s)
 ssh-add /root/.ssh/id_papaya
 printf "put -p /root/code/touchme.txt /root/code/touchme.txt\nbye" | sftp -P 10037 root@admin.djangotest.vs.mythic-beasts.com
