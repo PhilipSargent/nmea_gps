@@ -1,0 +1,17 @@
+Agent pid 28707
+sftp> put -p /root/code/touchme.txt /root/code/touchme.txt
+Uploading /root/code/touchme.txt to /root/code/touchme.txt
+sftp> bye
+On branch main
+Your branch is up to date with 'origin/main'.
+
+nothing to commit, working tree clean
+Updating 2e88a14..8f8dce7
+Fast-forward
+ 2024-04/2024-04-27_2243.nmea |  140 ----
+ 2024-04/2024-04-27_2309.nmea | 1665 ++++++++++++++++++++++++++++++++++++++++++
+ nmealogger.py                |   12 +-
+ 3 files changed, 1675 insertions(+), 142 deletions(-)
+ delete mode 100644 2024-04/2024-04-27_2243.nmea
+ create mode 100644 2024-04/2024-04-27_2309.nmea
+cp_error.txt
