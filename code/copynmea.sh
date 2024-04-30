@@ -10,7 +10,7 @@ cd /root/nmea_data
 wc /root/nmea_data/*/*.nmea
 
 # this is good for 2024 to 2099
-rsync -avz -e "ssh -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_data/20??/*  root@admin.djangotest.vs.mythic-beasts.com:/root/nmea_data
+rsync -avz -e "ssh -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/root/nmea_data
 pkill "ssh-agent -s"
 
 echo nmea data copy ran ok.
