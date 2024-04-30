@@ -1,4 +1,1 @@
-Identity added: /root/.ssh/id_papaya (root@Papaya)
-Connected to admin.djangotest.vs.mythic-beasts.com.
-From github.com:PhilipSargent/nmea_gps
-   2e88a14..8f8dce7  main       -> origin/main
+/bin/ash: /root/nmea_gps/code/copyscript.sh: Permission denied
