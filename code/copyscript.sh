@@ -1,5 +1,5 @@
 #!/bin/sh 
-# updated remotely 30 April 2024
+# updated  30 April 2024
 # now under git
 eval $(ssh-agent -s)
 ssh-add /root/.ssh/id_papaya
