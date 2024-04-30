@@ -12,4 +12,7 @@ cd /root/nmea_gps/code
 tar -czvf /root/code_data/alltxt.tar.gz *.txt *.sh 
 printf "put -p /root/code_data/alltxt.tar.gz /root/code_data/alltxt.tar.gz\nbye" | sftp -P 10037 root@admin.djangotest.vs.mythic-beasts.com
 
+crontab -l >/root/code_data/crontab.txt
+printf "put -p /root/code_data/crontab.txt /root/code_data/crontab.txt\nbye" | sftp -P 10037 root@admin.djangotest.vs.mythic-beasts.com
+
 echo Revised copyscript  ran.
