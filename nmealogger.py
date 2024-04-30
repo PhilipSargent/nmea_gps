@@ -120,7 +120,7 @@ def readstream(stream: socket.socket):
         quitonerror = ERR_RAISE,
     )
     file_bufsize = 1024
-    parentdir = Path(__file__).parent
+    parentdir = Path(__file__).parent.parent
     archivedir = parentdir / Path("nmea_data") / Path(start.strftime('%Y-%m'))
     archivedir.mkdir(exist_ok=True)
     print(parentdir, archivedir)
