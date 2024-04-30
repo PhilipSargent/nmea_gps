@@ -1,1 +1,0 @@
-/bin/ash: /root/nmea_gps/code/copyscript.sh: Permission denied
