@@ -6,10 +6,9 @@ ssh-add /root/.ssh/id_papaya
 printf "put -p /root/code/touchme.txt /root/code/touchme.txt\nbye" | sftp -P 10037 root@admin.djangotest.vs.mythic-beasts.com
 cd /root/nmea_gps
 git status
-git fetch
 git pull
 cd /root/nmea_gps/code
-tar -czvf /root/code_data/alltxt.tar.gz *.txt *.sh 
+tar -czvf /root/code_data/alltxt.tar.gz *.txt *.sh /root/code_data/*.txt
 printf "put -p /root/code_data/alltxt.tar.gz /root/code_data/alltxt.tar.gz\nbye" | sftp -P 10037 root@admin.djangotest.vs.mythic-beasts.com
 
 crontab -l >/root/code_data/crontab.txt
