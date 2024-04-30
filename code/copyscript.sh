@@ -1,7 +1,7 @@
 #!/bin/sh 
 # updated  30 April 2024
 # now under git
-pgrep ssh-agent > /dev/null || eval $(ssh-agent -s)
+eval $(ssh-agent -s)
 ssh-add /root/.ssh/id_papaya
 printf "put -p /root/code/touchme.txt /root/code/touchme.txt\nbye" | sftp -P 10037 root@admin.djangotest.vs.mythic-beasts.com
 cd /root/nmea_gps
@@ -13,5 +13,5 @@ printf "put -p /root/code_data/alltxt.tar.gz /root/code_data/alltxt.tar.gz\nbye"
 
 crontab -l >/root/code_data/crontab.txt
 printf "put -p /root/code_data/crontab.txt /root/code_data/crontab.txt\nbye" | sftp -P 10037 root@admin.djangotest.vs.mythic-beasts.com
-
+pkill "ssh-agent -s"
 echo Revised copyscript  ran.
