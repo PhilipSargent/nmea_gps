@@ -1,7 +1,7 @@
 #!/bin/sh 
 # updated  30 April 2024
 # now under git
-eval $(ssh-agent -s)
+pgrep ssh-agent > /dev/null || eval $(ssh-agent -s)
 ssh-add /root/.ssh/id_papaya
 printf "put -p /root/code/touchme.txt /root/code/touchme.txt\nbye" | sftp -P 10037 root@admin.djangotest.vs.mythic-beasts.com
 cd /root/nmea_gps
