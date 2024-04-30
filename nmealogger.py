@@ -120,8 +120,10 @@ def readstream(stream: socket.socket):
         quitonerror = ERR_RAISE,
     )
     file_bufsize = 1024
-    archivedir = Path(start.strftime('%Y-%m'))
+    parentdir = Path(__file__).parent
+    archivedir = parentdir / Path(start.strftime('%Y-%m'))
     archivedir.mkdir(exist_ok=True)
+    print(parentdir, archivedir)
     
     while True:
         msgcount = 0
