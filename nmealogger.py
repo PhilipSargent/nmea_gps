@@ -121,7 +121,7 @@ def readstream(stream: socket.socket):
     )
     file_bufsize = 1024
     parentdir = Path(__file__).parent
-    archivedir = parentdir / Path(start.strftime('%Y-%m'))
+    archivedir = parentdir / Path("nmea_data") / Path(start.strftime('%Y-%m'))
     archivedir.mkdir(exist_ok=True)
     print(parentdir, archivedir)
     
