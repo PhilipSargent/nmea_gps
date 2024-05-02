@@ -3,7 +3,9 @@ nmealogger.py
 Philip Sargent
 
 TO DO Stop it starting if it is already running and working!, or kill the one that is running and force it to start a new 
-nmea output file
+nmea output file - instead of relying on the crontab line:
+*/3 * * * * pgrep  "python"> /dev/null || python /root/nmea_gps/nmealogger.py
+which kills _every_ python process!
 
 archive raw NMEA which stays on the SD card but also filtered NMEA which gets uploaded once an hour.
 
@@ -15,10 +17,11 @@ Derived from nmeasocket.py
 """
 
 import socket
+import time as tm
 import pynmeagps.exceptions as nme
 
 from pathlib import Path
-from datetime import datetime, date, time
+from datetime import datetime, date
 
 from pynmeagps.nmeareader import NMEAReader
 from pynmeagps.nmeatypes_core import (
@@ -35,11 +38,55 @@ class NewDay(Exception):
     """
     When the UTC day changes, which is about 3am Greek time in Summer
     """
+class Stack:
+  """
+  A simple stack implementation with a maximum size.
+  We are using it to store tuples of (raw, hdop)
+  """
+  def __init__(self, max_size):
+    self.max_size = max_size
+    self.items = []
 
-def parsestream(nmr, af):
+  def is_empty(self):
+    return len(self.items) == 0
+
+  def is_full(self):
+    return len(self.items) == self.max_size
+
+  def push(self, item):
+    if self.is_full():
+      print("Stack Overflow! Cannot add item.")
+    else:
+      self.items.append(item)
+
+  def pop(self):
+    if self.is_empty():
+      print("Stack Underflow! Cannot remove item.")
+      return None
+    else:
+      return self.items.pop()
+
+  def flush(self):
+    self.items = []
+ 
+  def best(self):
+    # for (raw, hdop) tuple, return raw value with lowest HDOP
+    besthdop = 99
+    for i in self.items:
+        raw, hdop = i
+        if hdop < besthdop:
+            besthdop = hdop
+            bestnmea = raw
+    return bestnmea
+
+
+def parsestream(nmr, af, rawf):
     """Runs indefinitely unless there is a parse error or interrupt when it produces an exception
     """
     global msgcount, msggood
+    # Create an instance of the Stack class
+    stack_size = 6
+    data_stack = Stack(stack_size)
 
     for (raw, parsed_data) in nmr:
         if not parsed_data:
@@ -62,8 +109,10 @@ def parsestream(nmr, af):
                 thisday = d['date']
                 lastday = thisday
                 print("++ Set today's date")
+                af.write(raw) # write the date line to the filtered archive just the once
+                good_data_at = tm.time()
             else:
-                thisday = d['date']            
+                thisday = d['date']   
                 if thisday != lastday:
                     # print("++ NEXT DAY")
                     raise NewDay
@@ -93,18 +142,37 @@ def parsestream(nmr, af):
             hdop = ""
         else:
             hdop = f"{float(d['HDOP']):4.2f}"
+
         if 'lat' in d:
             lat = d['lat']
             lon = d['lon']
             if 'HDOP' in d:
-                if float(d['HDOP']) > 10 or lat =="":
+                if float(d['HDOP']) > 3 or lat =="":
                     print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} ") # last 2 digits always 33 or 67. They are strings.
             if lat != "":
-                af.write(raw)
-                msggood += 1
-        else:
-            lat = 0
-            lon = 0
+                rawf.write(raw)
+                if 'HDOP' in d and float(d['HDOP']) < 3: # rather crude.. 
+                    # TO DO
+                    # a 6-deep queue and calc average, weighted by HDOP.. hang on, this is actually a bit tricky...
+                    # Push data to the stack
+                    data_stack.push((raw, float(d['HDOP'])))
+                    if data_stack.is_full():
+                        af.write(data_stack.best())
+                        data_stack.flush()
+                        good_data_at = tm.time()
+                        msggood += 1
+                        print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} ")
+                now = tm.time()
+                time_since_good = 10 * 60 # ten minutes
+                if now - good_data_at > time_since_good: # seconds
+                    # log anyway, even if bad quality data
+                    # should write an extra log file about these..
+                    af.write(raw)
+                    print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} BAD DATA BUT USING ANYWAY ")
+                    good_data_at = start = tm.time()
+            else:
+                    lat = 0
+                    lon = 0
 
         msgcount += 1
         
@@ -125,10 +193,15 @@ def readstream(stream: socket.socket):
         quitonerror = ERR_RAISE,
     )
     file_bufsize = 1024
+    
+    # nmea_data gets rsync'd to server, nmea_raw does not.
     parentdir = Path(__file__).parent.parent
     archivedir = parentdir / Path("nmea_data") / Path(start.strftime('%Y-%m'))
     archivedir.mkdir(parents=True, exist_ok=True)
-    
+ 
+    rawdir = parentdir / Path("nmea_raw") / Path(start.strftime('%Y-%m'))
+    rawdir.mkdir(parents=True, exist_ok=True)
+ 
     while True:
         msgcount = 0
         msggood = 0
@@ -136,16 +209,18 @@ def readstream(stream: socket.socket):
         try:
             newstart = datetime.now() # This is timezone time, not UTC which comes from the GPS signal
             archivefilename = archivedir / (newstart.strftime('%Y-%m-%d_%H%M') +".nmea")
+            rawfilename = rawdir / (newstart.strftime('%Y-%m-%d_%H%M') +".nmea")
                 
-            print(f"Writing {archivefilename}")
+            print(f"Writing {archivefilename}  and  {rawfilename}")
             with open(archivefilename, 'ab', buffering=file_bufsize) as af: # ab not wr just in case the filename is unchanged.. 
-                while True:
-                    try:
-                        parsestream(nmr, af)
-                    except nme.NMEAParseError:
-                        # ignore whole sentence and continue
-                        print("-- PARSE ERROR")
-                        continue
+                with open(rawfilename, 'ab', buffering=file_bufsize) as rawf: # ab not wr just in case the filename is unchanged.. 
+                    while True:
+                        try:
+                            parsestream(nmr, af, rawf)
+                        except nme.NMEAParseError:
+                            # ignore whole sentence and continue
+                            print("-- PARSE ERROR")
+                            continue
         except KeyboardInterrupt:
             totcount += msgcount
             totgood += msggood
