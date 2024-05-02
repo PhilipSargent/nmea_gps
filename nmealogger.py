@@ -153,7 +153,9 @@ def parsestream(nmr, af, rawf):
                 rawf.write(raw)
                 if 'HDOP' in d and float(d['HDOP']) < 3: # rather crude.. 
                     # TO DO
-                    # a 6-deep queue and calc average, weighted by HDOP.. hang on, this is actually a bit tricky...
+                    # a 6-deep queue and ideally, calc average, weighted by HDOP.. hang on, this is actually a bit tricky...
+                    # just pick the best out of the 6 then.
+                    
                     # Push data to the stack
                     data_stack.push((raw, float(d['HDOP'])))
                     if data_stack.is_full():
@@ -161,14 +163,14 @@ def parsestream(nmr, af, rawf):
                         data_stack.flush()
                         good_data_at = tm.time()
                         msggood += 1
-                        print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} ")
+                        # print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} ")
                 now = tm.time()
                 time_since_good = 10 * 60 # ten minutes
                 if now - good_data_at > time_since_good: # seconds
                     # log anyway, even if bad quality data
                     # should write an extra log file about these..
                     af.write(raw)
-                    print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} BAD DATA BUT USING ANYWAY ")
+                    print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} BAD DATA BUT USING ANYWAY ") 
                     good_data_at = start = tm.time()
             else:
                     lat = 0
@@ -215,6 +217,7 @@ def readstream(stream: socket.socket):
             with open(archivefilename, 'ab', buffering=file_bufsize) as af: # ab not wr just in case the filename is unchanged.. 
                 with open(rawfilename, 'ab', buffering=file_bufsize) as rawf: # ab not wr just in case the filename is unchanged.. 
                     while True:
+                        # why is FIleNotFound exception not thrown here if the file is deleted ?
                         try:
                             parsestream(nmr, af, rawf)
                         except nme.NMEAParseError:
@@ -234,6 +237,7 @@ def readstream(stream: socket.socket):
             )
             break
         except NewDay:
+            # this is bad style. Really a GOTO statement.
             print("-- Next Day - restart logfile")
             totcount += msgcount
             totgood += msggood
