@@ -1,10 +1,13 @@
 """
 Simple CLI utility which creates a GPX track file
-from a binary NMEA dump. Dump must contain NMEA GGA messages.
+from a binary NMEA dump. Dump must contain NMEA GGA messages and an initial RMG messsage to get the date.
 
 EDITED by Philip Sargent to read date from GPRMC not just assume it is today.
 renamed as nmeagpx.py
 but also see all these : https://duckduckgo.com/?q=nmea2gpx&atb=v316-1&ia=web
+
+Usage:
+python nmeagpx.py infile="2024-05-09_0300.nmea" outdir="."
 
 Usage originally:
 python3 gpxtracker.py infile="pygpsdata.log" outdir="."
@@ -19,7 +22,8 @@ Created on 7 Mar 2021
 # pylint: disable=consider-using-with
 
 import os
-from datetime import datetime
+from datetime import datetime, date, timezone
+from pathlib import Path
 from sys import argv
 from time import strftime
 
@@ -57,12 +61,12 @@ class NMEATracker:
         self._trkfile = None
         self._nmeareader = None
         self._connected = False
+        self._thisday = None
 
     def open(self):
         """
         Open datalog file.
         """
-
         self._infile = open(self._filename, "rb")
         self._connected = True
 
@@ -70,7 +74,6 @@ class NMEATracker:
         """
         Close datalog file.
         """
-
         if self._connected and self._infile:
             self._infile.close()
 
@@ -79,28 +82,49 @@ class NMEATracker:
         Reads and parses UBX message data from stream
         using UBXReader iterator method
         """
-
         i = 0
+        n = 0
         self._nmeareader = NMEAReader(self._infile, validate=validate)
 
         self.write_gpx_hdr()
 
         for _, msg in self._nmeareader:  # invokes iterator method
+            n += 1
             try:
+                d = msg.__dict__
+                if 'date' in d: # only RMC, but get it anywhere if it exists
+                    if not self._thisday:
+                        self._thisday = d['date']
+                        print(f"++ Set date as '{self._thisday}' {msg.msgID} line:{n:6}")
+                    else:
+                        if self._thisday == d['date']:
+                            pass # ignore, same day
+                        else:
+                            self._thisday = d['date']
+                            print(f"++ Reset new date as '{self._thisday}' {msg.msgID} line:{n:6}")
+                        
+                    
+                
                 if msg.msgID == "GGA":
-                    dat = datetime.now()
                     tim = msg.time
-                    dat = (
-                        dat.replace(
-                            year=dat.year,
-                            month=dat.month,
-                            day=dat.day,
-                            hour=tim.hour,
-                            minute=tim.minute,
-                            second=tim.second,
-                        ).isoformat()
-                        + "Z"
-                    )
+                    if not self._thisday:
+                        # skip nmea lines until we get the date
+                        # we could use the filename, if that has been set to have the date.. nah.
+                        print(f".. skipping, no date.. {tim}")
+                        continue
+                    dat = datetime.combine(self._thisday, msg.time, timezone.utc)
+                    datstr = dat.isoformat() + "Z"
+                    # dat = (
+                        # dat.replace(
+                            # year=dat.year,
+                            # month=dat.month,
+                            # day=dat.day,
+                            # hour=tim.hour,
+                            # minute=tim.minute,
+                            # second=tim.second,
+                        # ).isoformat()
+                        # + "Z"
+                    # )
                     if msg.quality == 1:
                         fix = "3d"
                     elif msg.quality == 2:
@@ -111,7 +135,7 @@ class NMEATracker:
                         msg.lat,
                         msg.lon,
                         ele=msg.alt,
-                        time=dat,
+                        time=datstr,
                         fix=fix,
                         hdop=msg.HDOP,
                     )
@@ -130,17 +154,19 @@ class NMEATracker:
         Open gpx file and write GPX track header tags
         """
 
-        timestamp = strftime("%Y-%m-%d%H%M%S")
-        self._trkfname = os.path.join(self._outdir, f"gpxtrack-{timestamp}.gpx")
-        self._trkfile = open(self._trkfname, "a", encoding="utf-8")
+        timestamp = strftime("%Y-%m-%d_%H%M%S")
+        #self._trkfname = os.path.join(self._outdir, f"gpxtrack-{timestamp}.gpx")
+        self._trkfname = Path(self._outdir) / (Path(self._filename).stem + ".gpx")
+        print(self._trkfname)
+        self._trkfile = open(self._trkfname, "w", encoding="utf-8")
 
         date = datetime.now().isoformat() + "Z"
         gpxtrack = (
             XML_HDR + "<gpx " + GPX_NS + ">"
             f"<metadata>"
             f'<link href="{GITHUB_LINK}"><text>pynmeagps</text></link><time>{date}</time>'
-            "</metadata>"
-            "<trk><name>GPX track from NMEA datalog</name><trkseg>"
+            "</metadata>\n"
+            "<trk><name>GPX track from NMEA datalog</name>\n <trkseg>"
         )
 
         self._trkfile.write(gpxtrack)
@@ -150,7 +176,7 @@ class NMEATracker:
         Write GPX track point from NAV-PVT message content
         """
 
-        trkpnt = f'<trkpt lat="{lat}" lon="{lon}">'
+        trkpnt = f'  <trkpt lat="{lat}" lon="{lon}">'
 
         # these are the permissible elements in the GPX schema for wptType
         # http://www.topografix.com/GPX/1/1/#type_wptType
@@ -179,7 +205,7 @@ class NMEATracker:
                 val = kwargs[tag]
                 trkpnt += f"<{tag}>{val}</{tag}>"
 
-        trkpnt += "</trkpt>"
+        trkpnt += "  </trkpt>\n"
 
         self._trkfile.write(trkpnt)
 
@@ -188,7 +214,7 @@ class NMEATracker:
         Write GPX track trailer tags and close file
         """
 
-        gpxtrack = "</trkseg></trk></gpx>"
+        gpxtrack = " </trkseg>\n</trk>\n</gpx>"
         self._trkfile.write(gpxtrack)
         self._trkfile.close()
 
@@ -198,7 +224,7 @@ def main(**kwargs):
     Main routine.
     """
 
-    infile = kwargs.get("infile", "pygpsdata-test.log")
+    infile = kwargs.get("infile", "pygpsdata.nmea")
     outdir = kwargs.get("outdir", ".")
     print("NMEA datalog to GPX file converter")
     tkr = NMEATracker(infile, outdir)
