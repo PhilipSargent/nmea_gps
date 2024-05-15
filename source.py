@@ -1,7 +1,7 @@
 """Written by Bard initially
 2024-02-01
 
-I got the exampel NMEA data from making a circular route on https://nmeagen.org/
+I got the example NMEA data from making a circular route on https://nmeagen.org/
 so it is a rather speedy circumnavigation of Poros, so that it works for testing
 Navionics where the location  must be within the scope of a purchased chart.
 """
@@ -10,9 +10,6 @@ import socket
 import signal
 import time
 import errno
-# Replace with your actual TCP server details
-
-
 
 RECONNECT_DELAY = 5 # seconds
 LINE_DELAY = 0.333
