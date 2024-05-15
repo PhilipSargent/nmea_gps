@@ -2,12 +2,18 @@
 nmealogger.py
 Philip Sargent
 
-TO DO Stop it starting if it is already running and working!, or kill the one that is running and force it to start a new 
-nmea output file - instead of relying on the crontab line:
-*/3 * * * * pgrep  "python"> /dev/null || python /root/nmea_gps/nmealogger.py
-which kills _every_ python process!
+archive raw NMEA which stays on the SD card but also filtered NMEA which gets uploaded every 7 minutes (crontab)
 
-archive raw NMEA which stays on the SD card but also filtered NMEA which gets uploaded once an hour.
+
+Run from a shell script, which terminates if this terminates.
+crontab pgrep detects isf the shell script is running, and if not, it restarts the shell script and thus this
+programe.
+
+Puzzle: this terminates at random, and I don't know why yet. But crontab restarts fine.
+
+Problem: over-stressing anchor winch got the router into a strange condition where 
+it did not load extroot and so nothing was running. Thsi can only be detected by something
+running on another machine, i.e. the server to which regular uploads are made by copynmea.sh
 
 Derived from nmeasocket.py
     A simple example implementation of a GNSS socket reader
@@ -15,6 +21,7 @@ Derived from nmeasocket.py
     Created on 05 May 2022
     @author: semuadmin
 """
+import errno, os
 
 import socket
 import time as tm
@@ -80,7 +87,7 @@ class Stack:
     return bestnmea
 
 
-def parsestream(nmr, af, rawf):
+def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     """Runs indefinitely unless there is a parse error or interrupt when it produces an exception
     """
     global msgcount, msggood
@@ -89,6 +96,11 @@ def parsestream(nmr, af, rawf):
     data_stack = Stack(stack_size)
 
     for (raw, parsed_data) in nmr:
+        if not archivefilename.is_file():
+            raise FileNotFoundError( errno.ENOENT, os.strerror(errno.ENOENT), archivefilename)
+        if not rawfilename.is_file():
+            raise FileNotFoundError( errno.ENOENT, os.strerror(errno.ENOENT), rawfilename)
+    
         if not parsed_data:
             # skip unparseable, even if there is no exception thrown - never happens ?
             print(raw)
@@ -184,6 +196,13 @@ def readstream(stream: socket.socket):
     Reads and parses NMEA message from socket stream.
     """
     global msgcount, msggood
+    
+    def print_summary():
+        print(
+        f"{totcount:,d} messages read in {secs:.2f} seconds.",
+        f"{totgood:,d} lat/lon messages logged, at",
+        f"{totgood/secs:.2f} msgs per second",
+        )
 
     start = datetime.now() # This is timezone time, not UTC which comes from the GPS signal
     totcount = 0
@@ -219,9 +238,9 @@ def readstream(stream: socket.socket):
                     while True:
                         # why is FIleNotFound exception not thrown here if the file is deleted ?
                         try:
-                            parsestream(nmr, af, rawf)
+                            parsestream(nmr, af, archivefilename, rawf, rawfilename)
                         except nme.NMEAParseError:
-                            # ignore whole sentence and continue
+                            # ignore whole sentence, but this is OK:  continue
                             print("-- PARSE ERROR")
                             continue
         except KeyboardInterrupt:
@@ -230,11 +249,7 @@ def readstream(stream: socket.socket):
             dur = datetime.now() - start
             secs = dur.seconds + dur.microseconds / 1e6
             print("Session terminated by user")
-            print(
-                f"{totcount:,d} messages read in {secs:.2f} seconds.",
-                f"{totgood:,d} lat/lon messages logged, at",
-                f"{totgood/secs:.2f} msgs per second",
-            )
+            print_summary()
             break
         except NewDay:
             # this is bad style. Really a GOTO statement.
@@ -243,6 +258,10 @@ def readstream(stream: socket.socket):
             totgood += msggood
 
             continue
+        except FileNotFoundError:
+            print("FileNotFound error: {archivefilename}  or  {rawfilename}, restarting with new file.")
+            print_summary()
+            break
 
 
 if __name__ == "__main__":
