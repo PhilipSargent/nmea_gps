@@ -236,30 +236,39 @@ def readstream(stream: socket.socket):
             with open(archivefilename, 'ab', buffering=file_bufsize) as af: # ab not wr just in case the filename is unchanged.. 
                 with open(rawfilename, 'ab', buffering=file_bufsize) as rawf: # ab not wr just in case the filename is unchanged.. 
                     while True:
-                        # why is FIleNotFound exception not thrown here if the file is deleted ?
                         try:
                             parsestream(nmr, af, archivefilename, rawf, rawfilename)
                         except nme.NMEAParseError:
                             # ignore whole sentence, but this is OK:  continue
-                            print("-- PARSE ERROR")
+                            stamp = datetime.now().strftime('%Y-%m')
+                            print("{stamp} -- PARSE ERROR")
                             continue
+        except NewDay:
+            # this is bad style. Really a GOTO statement.
+            stamp = datetime.now().strftime('%Y-%m')
+            print("{stamp} -- Next Day - restart logfile")
+            totcount += msgcount
+            totgood += msggood
+            print_summary()
+            continue
+
         except KeyboardInterrupt:
             totcount += msgcount
             totgood += msggood
+            stamp = datetime.now().strftime('%Y-%m')
             dur = datetime.now() - start
             secs = dur.seconds + dur.microseconds / 1e6
-            print("Session terminated by user")
+            print("{stamp} Session terminated by user")
             print_summary()
             break
-        except NewDay:
-            # this is bad style. Really a GOTO statement.
-            print("-- Next Day - restart logfile")
-            totcount += msgcount
-            totgood += msggood
-
-            continue
         except FileNotFoundError:
-            print("FileNotFound error: {archivefilename}  or  {rawfilename}, restarting with new file.")
+            stamp = datetime.now().strftime('%Y-%m')
+            print("{stamp} FileNotFound error: {archivefilename}  or  {rawfilename}, restarting with new file.")
+            print_summary()
+            break
+        except Exception as e: 
+            stamp = datetime.now().strftime('%Y-%m')
+            print("{stamp} EXCEPTION {e}")
             print_summary()
             break
 
