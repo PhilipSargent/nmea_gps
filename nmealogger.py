@@ -23,6 +23,7 @@ Derived from nmeasocket.py
 """
 import errno, os
 
+import resource
 import socket
 import time as tm
 import pynmeagps.exceptions as nme
@@ -39,7 +40,7 @@ from pynmeagps.nmeatypes_core import (
     VALCKSUM,
     VALMSGID,
 )
-global msgcount, msggood
+global msgcount, msggood, msgparse
 
 class NewDay(Exception):
     """
@@ -90,11 +91,11 @@ class Stack:
 def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     """Runs indefinitely unless there is a parse error or interrupt when it produces an exception
     """
-    global msgcount, msggood
+    global msgcount, msggood, msgparse
     # Create an instance of the Stack class
     stack_size = 6
     data_stack = Stack(stack_size)
-
+    
     for (raw, parsed_data) in nmr:
         if not archivefilename.is_file():
             raise FileNotFoundError( errno.ENOENT, os.strerror(errno.ENOENT), archivefilename)
@@ -120,7 +121,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             if 'thisday' not in locals(): # first date seen
                 thisday = d['date']
                 lastday = thisday
-                print("++ Set today's date")
+                print(f"++ Set today's date {thisday}")
                 af.write(raw) # write the date line to the filtered archive just the once
                 good_data_at = tm.time()
             else:
@@ -188,25 +189,38 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     lat = 0
                     lon = 0
 
-        msgcount += 1
-        
+        if msgcount % 1000 == 0: 
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}")
+        msgcount += 1            
 
 def readstream(stream: socket.socket):
     """
     Reads and parses NMEA message from socket stream.
     """
-    global msgcount, msggood
+    global msgcount, msggood, msgparse
     
+    totcount = 0
+    totgood = 0
+    totparse = 0
+
     def print_summary():
+        nonlocal totcount, totgood, totparse
+        
+        totcount += msgcount
+        totgood += msggood
+        totparse += msgparse
+    
         print(
         f"{totcount:,d} messages read in {secs:.2f} seconds.",
         f"{totgood:,d} lat/lon messages logged, at",
         f"{totgood/secs:.2f} msgs per second",
+        f"{totparse:d} parse errors",
+        f"Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.3f} MB",
         )
 
     start = datetime.now() # This is timezone time, not UTC which comes from the GPS signal
-    totcount = 0
-    totgood = 0
+    
+    # print(f"{start.strftime('%Y-%m-%d %H:%M')} - Memory footprint on starting: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.3f} MB")
  
 
     nmr = NMEAReader(
@@ -226,6 +240,7 @@ def readstream(stream: socket.socket):
     while True:
         msgcount = 0
         msggood = 0
+        msgparse = 0
 
         try:
             newstart = datetime.now() # This is timezone time, not UTC which comes from the GPS signal
@@ -239,36 +254,34 @@ def readstream(stream: socket.socket):
                         try:
                             parsestream(nmr, af, archivefilename, rawf, rawfilename)
                         except nme.NMEAParseError:
+                            msgparse += 1
                             # ignore whole sentence, but this is OK:  continue
-                            stamp = datetime.now().strftime('%Y-%m')
-                            print("{stamp} -- PARSE ERROR")
+                            # stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
+                            # print(f"{stamp} -- PARSE ERROR")
                             continue
         except NewDay:
             # this is bad style. Really a GOTO statement.
-            stamp = datetime.now().strftime('%Y-%m')
+            stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
             print("{stamp} -- Next Day - restart logfile")
-            totcount += msgcount
-            totgood += msggood
             print_summary()
             continue
 
         except KeyboardInterrupt:
-            totcount += msgcount
-            totgood += msggood
-            stamp = datetime.now().strftime('%Y-%m')
+            stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
             dur = datetime.now() - start
             secs = dur.seconds + dur.microseconds / 1e6
-            print("{stamp} Session terminated by user")
+            print(f"{stamp} Session terminated by user")
             print_summary()
             break
-        except FileNotFoundError:
-            stamp = datetime.now().strftime('%Y-%m')
-            print("{stamp} FileNotFound error: {archivefilename}  or  {rawfilename}, restarting with new file.")
+        except FileNotFoundError as e:
+            # This was raised explicitly in parsestream
+            stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
+            print(f"{stamp} FileNotFound error: {archivefilename}  or  {rawfilename}, restarting with new file.\n {e}")
             print_summary()
             break
         except Exception as e: 
-            stamp = datetime.now().strftime('%Y-%m')
-            print("{stamp} EXCEPTION {e}")
+            stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
+            print(f"{stamp} EXCEPTION {e}")
             print_summary()
             break
 
