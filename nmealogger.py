@@ -101,6 +101,8 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             raise FileNotFoundError( errno.ENOENT, os.strerror(errno.ENOENT), archivefilename)
         if not rawfilename.is_file():
             raise FileNotFoundError( errno.ENOENT, os.strerror(errno.ENOENT), rawfilename)
+            
+        pre_size = rawfilename.stat()
     
         if not parsed_data:
             # skip unparseable, even if there is no exception thrown - never happens ?
@@ -116,13 +118,14 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             #print(f"{raw}")
             #pass
             
-        # We need RMC for the date. Others only give time.
+        # We need RMC for the date. Others only give time. But when we get it, we have to assume it's changed ?
         if 'date' in d:
             if 'thisday' not in locals(): # first date seen
                 thisday = d['date']
                 lastday = thisday
                 print(f"++ Set today's date {thisday}")
                 af.write(raw) # write the date line to the filtered archive just the once
+                af.flush()
                 good_data_at = tm.time()
             else:
                 thisday = d['date']   
@@ -136,18 +139,6 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
 
         if 'time' in d:
             t = d['time']
-            # if 'thistime' not in locals():
-                # thistime = t
-                # lasttime = thistime
-            # else:
-                # thistime = t
-                # today = date.today()
-                # thisd = datetime.combine(today, thistime)
-                # lastd = datetime.combine(today, lasttime)
-                # duration = thisd - lastd
-                # if duration.seconds > 60:
-                    # print("++ NEXT ~")
-                    # raise NewDay
         else: 
             t = 0
             
@@ -165,6 +156,11 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             if lat != "":
                 rawf.write(raw)
                 rawf.flush()
+                post_size = rawfilename.stat()
+                if post_size <= pre_size:
+                    print(f"{parsed_data.msgID}  {thisday} {t} FAILED TO UPDATE RAW FILE, aborting.. ") 
+                    raise NewDay
+
                 if 'HDOP' in d and float(d['HDOP']) < 3: # rather crude.. 
                     # TO DO
                     # a 6-deep queue and ideally, calc average, weighted by HDOP.. hang on, this is actually a bit tricky...
@@ -174,10 +170,12 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     data_stack.push((raw, float(d['HDOP'])))
                     if data_stack.is_full():
                         af.write(data_stack.best())
+                        af.flush()
                         data_stack.flush()
                         good_data_at = tm.time()
                         msggood += 1
                         # print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} ")
+                        
                 now = tm.time()
                 time_since_good = 10 * 60 # ten minutes
                 if now - good_data_at > time_since_good: # seconds
