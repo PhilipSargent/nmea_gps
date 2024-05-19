@@ -189,7 +189,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     lat = 0
                     lon = 0
 
-        if msgcount % 1000 == 0: 
+        if msgcount % 10000 == 0: 
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}")
         msgcount += 1            
 
