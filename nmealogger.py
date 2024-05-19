@@ -164,6 +164,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} ") # last 2 digits always 33 or 67. They are strings.
             if lat != "":
                 rawf.write(raw)
+                rawf.flush()
                 if 'HDOP' in d and float(d['HDOP']) < 3: # rather crude.. 
                     # TO DO
                     # a 6-deep queue and ideally, calc average, weighted by HDOP.. hang on, this is actually a bit tricky...
@@ -183,6 +184,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     # log anyway, even if bad quality data
                     # should write an extra log file about these..
                     af.write(raw)
+                    af.flush()
                     print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} BAD DATA BUT USING ANYWAY ") 
                     good_data_at = start = tm.time()
             else:
