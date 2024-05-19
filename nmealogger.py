@@ -203,13 +203,21 @@ def readstream(stream: socket.socket):
     totgood = 0
     totparse = 0
 
-    def print_summary():
-        nonlocal totcount, totgood, totparse
+    start = datetime.now() # This is timezone time, not UTC which comes from the GPS signal
+
+
+    def print_summary(msg=None):
+        nonlocal totcount, totgood, totparse, start
         
         totcount += msgcount
         totgood += msggood
         totparse += msgparse
-    
+        
+        stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
+        dur = datetime.now() - start
+        secs = dur.seconds + dur.microseconds / 1e6
+        print(f"{stamp} {msg}")
+
         print(
         f"{totcount:,d} messages read in {secs:.2f} seconds.",
         f"{totgood:,d} lat/lon messages logged, at",
@@ -218,7 +226,6 @@ def readstream(stream: socket.socket):
         f"Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.3f} MB",
         )
 
-    start = datetime.now() # This is timezone time, not UTC which comes from the GPS signal
     
     # print(f"{start.strftime('%Y-%m-%d %H:%M')} - Memory footprint on starting: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.3f} MB")
  
@@ -261,28 +268,18 @@ def readstream(stream: socket.socket):
                             continue
         except NewDay:
             # this is bad style. Really a GOTO statement.
-            stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
-            print("{stamp} -- Next Day - restart logfile")
-            print_summary()
+            print_summary("-- Next Day - restart logfile")
             continue
 
         except KeyboardInterrupt:
-            stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
-            dur = datetime.now() - start
-            secs = dur.seconds + dur.microseconds / 1e6
-            print(f"{stamp} Session terminated by user")
-            print_summary()
+            print_summary("Keyboard interrupt")
             break
         except FileNotFoundError as e:
             # This was raised explicitly in parsestream
-            stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
-            print(f"{stamp} FileNotFound error: {archivefilename}  or  {rawfilename}, restarting with new file.\n {e}")
-            print_summary()
+            print_summary(f"FileNotFound error: {archivefilename}  or  {rawfilename}, restarting with new file.\n {e}")
             break
         except Exception as e: 
-            stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
-            print(f"{stamp} EXCEPTION {e}")
-            print_summary()
+            print_summary(f"EXCEPTION {e}")
             break
 
 
