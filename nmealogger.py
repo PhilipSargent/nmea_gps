@@ -25,6 +25,7 @@ import errno, os
 
 import resource
 import socket
+import sys
 import time as tm
 import pynmeagps.exceptions as nme
 
@@ -87,14 +88,15 @@ class Stack:
             bestnmea = raw
     return bestnmea
 
+# Create a module-level instance of the Stack class which is unique, i.e. a singleton
+stack_size = 6
+data_stack = Stack(stack_size)
+
 
 def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     """Runs indefinitely unless there is a parse error or interrupt when it produces an exception
     """
-    global msgcount, msggood, msgparse
-    # Create an instance of the Stack class
-    stack_size = 6
-    data_stack = Stack(stack_size)
+    global msgcount, msggood, msgparse, data_stack
     
     for (raw, parsed_data) in nmr:
         if not archivefilename.is_file():
@@ -287,6 +289,15 @@ if __name__ == "__main__":
 
     SERVER = "192.168.8.60" # the QK-A026
     PORT = 2000
+    
+    if len(sys.argv) == 3:
+        SERVER = sys.argv[1]
+        PORT = int(sys.argv[2])
+
+
+    if len(sys.argv) == 2:
+        print(f"Either with no parameters or with server ip and port, e.g.\n$ python nmealogger.py 0.0.0.0 65432")
+        exit()
 
     print(f"Opening socket {SERVER}:{PORT}...")
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
