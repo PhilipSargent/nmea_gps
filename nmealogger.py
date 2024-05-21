@@ -108,7 +108,10 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     
         if not parsed_data:
             # skip unparseable, even if there is no exception thrown - never happens ?
-            print(f"Unparsed data:",raw, flush=True)
+            try:
+                print(f"Unparsed data (utf8):",raw.decode("utf-8", "strict"), flush=True)
+            except:
+                print(f"Unparsed data: (binary)",raw, flush=True)
             continue
         else:
             d = parsed_data.__dict__
@@ -120,12 +123,14 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             #print(f"{raw}")
             #pass
             
-        # We need RMC for the date. Others only give time. But when we get it, we have to assume it's changed ?
+        # We need RMC for the date. Others only give time. 
+        # SInce this function restarts each parse error, it resets the date each time.
+        # This is a bit over-protective.
         if 'date' in d:
             if 'thisday' not in locals(): # first date seen
                 thisday = d['date']
                 lastday = thisday
-                print(f"++ Set today's date {thisday}", flush=True)
+                # print(f"++ Set today's date {thisday}", flush=True)
                 af.write(raw) # write the date line to the filtered archive just the once
                 af.flush()
                 good_data_at = tm.time()
@@ -230,7 +235,7 @@ def readstream(stream: socket.socket):
         )
 
     
-    print(f"{start.strftime('%Y-%m-%d %H:%M')} - Memory footprint on starting: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.3f} MB", flush=True)
+    # print(f"{start.strftime('%Y-%m-%d %H:%M')} - Memory footprint on starting: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB", flush=True)
  
 
     nmr = NMEAReader(
