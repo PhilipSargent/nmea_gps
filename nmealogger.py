@@ -229,7 +229,7 @@ def readstream(stream: socket.socket):
         )
 
     
-    # print(f"{start.strftime('%Y-%m-%d %H:%M')} - Memory footprint on starting: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.3f} MB")
+    print(f"{start.strftime('%Y-%m-%d %H:%M')} - Memory footprint on starting: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.3f} MB")
  
 
     nmr = NMEAReader(
