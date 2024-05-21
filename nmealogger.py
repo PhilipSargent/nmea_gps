@@ -276,18 +276,18 @@ def readstream(stream: socket.socket):
                             continue
         except NewDay:
             # this is bad style. Really a GOTO statement.
-            print_summary("-- Next Day - restart logfile", flush=True)
+            print_summary("-- Next Day - restart logfile")
             continue
 
         except KeyboardInterrupt:
-            print_summary("Keyboard interrupt", flush=True)
+            print_summary("Keyboard interrupt")
             break
         except FileNotFoundError as e:
             # This was raised explicitly in parsestream
-            print_summary(f"FileNotFound error: {archivefilename}  or  {rawfilename}, restarting with new file.\n {e}", flush=True)
+            print_summary(f"FileNotFound error: {archivefilename}  or  {rawfilename}, restarting with new file.\n {e}")
             break
         except Exception as e: 
-            print_summary(f"EXCEPTION {e}", flush=True)
+            print_summary(f"EXCEPTION {e}")
             break
 
 
