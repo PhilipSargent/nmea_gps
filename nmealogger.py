@@ -64,13 +64,13 @@ class Stack:
 
   def push(self, item):
     if self.is_full():
-      print("Stack Overflow! Cannot add item.")
+      print("Stack Overflow! Cannot add item.", flush=True)
     else:
       self.items.append(item)
 
   def pop(self):
     if self.is_empty():
-      print("Stack Underflow! Cannot remove item.")
+      print("Stack Underflow! Cannot remove item.", flush=True)
       return None
     else:
       return self.items.pop()
@@ -108,7 +108,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     
         if not parsed_data:
             # skip unparseable, even if there is no exception thrown - never happens ?
-            print(raw)
+            print(f"Unparsed data:",raw, flush=True)
             continue
         else:
             d = parsed_data.__dict__
@@ -125,18 +125,18 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             if 'thisday' not in locals(): # first date seen
                 thisday = d['date']
                 lastday = thisday
-                print(f"++ Set today's date {thisday}")
+                print(f"++ Set today's date {thisday}", flush=True)
                 af.write(raw) # write the date line to the filtered archive just the once
                 af.flush()
                 good_data_at = tm.time()
             else:
                 thisday = d['date']   
                 if thisday != lastday:
-                    # print("++ NEXT DAY")
+                    # print("++ NEXT DAY", flush=True)
                     raise NewDay
                            
         if 'thisday' not in locals():
-            # print("-- No date yet...")
+            # print("-- No date yet...", flush=True)
             continue # ignore all NMEA until we get a date       
 
         if 'time' in d:
@@ -154,13 +154,13 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             lon = d['lon']
             if 'HDOP' in d:
                 if float(d['HDOP']) > 3 or lat =="":
-                    print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} ") # last 2 digits always 33 or 67. They are strings.
+                    print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} ", flush=True) # last 2 digits always 33 or 67. They are strings.
             if lat != "":
                 rawf.write(raw)
                 rawf.flush()
                 post_size = rawfilename.stat()
                 if post_size <= pre_size:
-                    print(f"{parsed_data.msgID}  {thisday} {t} FAILED TO UPDATE RAW FILE, aborting.. ") 
+                    print(f"{parsed_data.msgID}  {thisday} {t} FAILED TO UPDATE RAW FILE, aborting.. ", flush=True) 
                     raise NewDay
 
                 if 'HDOP' in d and float(d['HDOP']) < 3: # rather crude.. 
@@ -176,7 +176,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                         data_stack.flush()
                         good_data_at = tm.time()
                         msggood += 1
-                        # print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} ")
+                        # print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} ", flush=True)
                         
                 now = tm.time()
                 time_since_good = 10 * 60 # ten minutes
@@ -192,7 +192,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     lon = 0
 
         if msgcount % 10000 == 0: 
-            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}")
+            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}", flush=True)
         msgcount += 1            
 
 def readstream(stream: socket.socket):
@@ -226,10 +226,11 @@ def readstream(stream: socket.socket):
         f"{totgood/secs:.2f} msgs per second",
         f"{totparse:d} parse errors",
         f"Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.3f} MB",
+        flush=True,
         )
 
     
-    print(f"{start.strftime('%Y-%m-%d %H:%M')} - Memory footprint on starting: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.3f} MB")
+    print(f"{start.strftime('%Y-%m-%d %H:%M')} - Memory footprint on starting: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.3f} MB", flush=True)
  
 
     nmr = NMEAReader(
@@ -256,7 +257,7 @@ def readstream(stream: socket.socket):
             archivefilename = archivedir / (newstart.strftime('%Y-%m-%d_%H%M') +".nmea")
             rawfilename = rawdir / (newstart.strftime('%Y-%m-%d_%H%M') +".nmea")
                 
-            print(f"Writing {archivefilename}  and  {rawfilename}")
+            print(f"Writing {archivefilename}  and  {rawfilename}", flush=True)
             with open(archivefilename, 'ab', buffering=file_bufsize) as af: # ab not wr just in case the filename is unchanged.. 
                 with open(rawfilename, 'ab', buffering=file_bufsize) as rawf: # ab not wr just in case the filename is unchanged.. 
                     while True:
@@ -266,22 +267,22 @@ def readstream(stream: socket.socket):
                             msgparse += 1
                             # ignore whole sentence, but this is OK:  continue
                             # stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
-                            # print(f"{stamp} -- PARSE ERROR")
+                            # print(f"{stamp} -- PARSE ERROR", flush=True)
                             continue
         except NewDay:
             # this is bad style. Really a GOTO statement.
-            print_summary("-- Next Day - restart logfile")
+            print_summary("-- Next Day - restart logfile", flush=True)
             continue
 
         except KeyboardInterrupt:
-            print_summary("Keyboard interrupt")
+            print_summary("Keyboard interrupt", flush=True)
             break
         except FileNotFoundError as e:
             # This was raised explicitly in parsestream
-            print_summary(f"FileNotFound error: {archivefilename}  or  {rawfilename}, restarting with new file.\n {e}")
+            print_summary(f"FileNotFound error: {archivefilename}  or  {rawfilename}, restarting with new file.\n {e}", flush=True)
             break
         except Exception as e: 
-            print_summary(f"EXCEPTION {e}")
+            print_summary(f"EXCEPTION {e}", flush=True)
             break
 
 
@@ -296,10 +297,10 @@ if __name__ == "__main__":
 
 
     if len(sys.argv) == 2:
-        print(f"Either with no parameters or with server ip and port, e.g.\n$ python nmealogger.py 0.0.0.0 65432")
+        print(f"Either with no parameters or with server ip and port, e.g.\n$ python nmealogger.py 0.0.0.0 65432", flush=True)
         exit()
 
-    print(f"Opening socket {SERVER}:{PORT}...")
+    print(f"Opening socket {SERVER}:{PORT}...", flush=True)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.connect((SERVER, PORT))
         readstream(sock)
