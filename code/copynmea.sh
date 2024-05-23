@@ -7,7 +7,7 @@ ssh-add /root/.ssh/id_papaya
 
 # Update the data archive on the server in Cambridge
 cd /root/nmea_data
-wc /root/nmea_data/*/*.nmea
+# wc /root/nmea_data/*/*.nmea
 
 touch nmealogger_rsynced.txt
 
