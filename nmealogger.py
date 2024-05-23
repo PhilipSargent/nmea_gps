@@ -41,7 +41,11 @@ from pynmeagps.nmeatypes_core import (
     VALCKSUM,
     VALMSGID,
 )
-global msgcount, msggood, msgparse
+global msgcount, msggood, msgparse, msgqk
+totcount = 0
+totgood = 0
+totparse = 0
+totqk = 0
 
 class NewDay(Exception):
     """
@@ -92,11 +96,34 @@ class Stack:
 stack_size = 6
 data_stack = Stack(stack_size)
 
+def print_summary(msg=None):
+    global totcount, totgood, totparse, totqk,  start
+    
+    totcount += msgcount
+    totgood += msggood
+    totparse += msgparse
+    totqk += msgqk
+    
+    stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
+    dur = datetime.now() - start
+    secs = dur.seconds + dur.microseconds / 1e6
+    print(f"{stamp} {msg}")
+
+    print(
+    f"\n {totcount:,d} messages read in {secs:.2f} seconds.",
+    f"\n {totgood:,d} lat/lon messages logged, at",
+    f"\n {totgood/secs:.2f} msgs per second",
+    f"\n {totqk:d} QK corruptions",
+    f"\n {totparse:d} parse errors",
+    f"\n Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB",
+    flush=True,
+    )
+
 
 def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     """Runs indefinitely unless there is a parse error or interrupt when it produces an exception
     """
-    global msgcount, msggood, msgparse, data_stack
+    global msgcount, msggood, msgparse, msgqk, data_stack
     
     for (raw, parsed_data) in nmr:
         if not archivefilename.is_file():
@@ -107,9 +134,12 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
         pre_size = rawfilename.stat()
     
         if not parsed_data:
-            # skip unparseable, even if there is no exception thrown - never happens ?
+            # skip unparseable, even if there is no exception thrown - happens when QK butts in.
             try:
-                print(f"Unparsed data (utf8):",raw.decode("utf-8", "strict"), flush=True)
+                if "Quark-elec:No valid AIS signal." in raw.decode("utf-8", "strict"):
+                    msgqk += 1
+                else:
+                    print(f"Unparsed data (utf8):",raw.decode("utf-8", "strict"), flush=True)
             except:
                 print(f"Unparsed data: (binary)",raw, flush=True)
             continue
@@ -140,7 +170,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     # print("++ NEXT DAY", flush=True)
                     raise NewDay
                            
-        if 'thisday' not in locals():
+        if 'thisday' not in locals(): # ie first time since restart
             # print("-- No date yet...", flush=True)
             continue # ignore all NMEA until we get a date       
 
@@ -173,6 +203,8 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     # a 6-deep queue and ideally, calc average, weighted by HDOP.. hang on, this is actually a bit tricky...
                     # just pick the best out of the 6 then.
                     
+                    # TO DO : CHECK that these data points are all within a second or two ! Otherwise we throw away data we need.
+                    
                     # Push data to the stack
                     data_stack.push((raw, float(d['HDOP'])))
                     if data_stack.is_full():
@@ -196,44 +228,19 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     lat = 0
                     lon = 0
 
-        if msgcount % 10000 == 0: 
+        if msgcount in [0, 10, 500, 1000]: 
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}", flush=True)
         msgcount += 1            
-
+        if msgcount % 100000 == 0: 
+            print_summary(msg="ok...")
+ 
 def readstream(stream: socket.socket):
     """
     Reads and parses NMEA message from socket stream.
     """
-    global msgcount, msggood, msgparse
-    
-    totcount = 0
-    totgood = 0
-    totparse = 0
+    global totcount, totgood, totparse, totqk, msgcount, msggood, msgparse, msgqk, start
 
     start = datetime.now() # This is timezone time, not UTC which comes from the GPS signal
-
-
-    def print_summary(msg=None):
-        nonlocal totcount, totgood, totparse, start
-        
-        totcount += msgcount
-        totgood += msggood
-        totparse += msgparse
-        
-        stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
-        dur = datetime.now() - start
-        secs = dur.seconds + dur.microseconds / 1e6
-        print(f"{stamp} {msg}")
-
-        print(
-        f"{totcount:,d} messages read in {secs:.2f} seconds.",
-        f"{totgood:,d} lat/lon messages logged, at",
-        f"{totgood/secs:.2f} msgs per second",
-        f"{totparse:d} parse errors",
-        f"Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.3f} MB",
-        flush=True,
-        )
-
     
     # print(f"{start.strftime('%Y-%m-%d %H:%M')} - Memory footprint on starting: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB", flush=True)
  
@@ -256,6 +263,7 @@ def readstream(stream: socket.socket):
         msgcount = 0
         msggood = 0
         msgparse = 0
+        msgqk = 0
 
         try:
             newstart = datetime.now() # This is timezone time, not UTC which comes from the GPS signal
@@ -304,7 +312,9 @@ if __name__ == "__main__":
     if len(sys.argv) == 2:
         print(f"Either with no parameters or with server ip and port, e.g.\n$ python nmealogger.py 0.0.0.0 65432", flush=True)
         exit()
+        
 
+    
     print(f"Opening socket {SERVER}:{PORT}...", flush=True)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.connect((SERVER, PORT))
