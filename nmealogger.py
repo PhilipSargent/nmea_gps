@@ -47,6 +47,8 @@ totgood = 0
 totparse = 0
 totqk = 0
 
+HDOP_LIMIT = 3
+
 class NewDay(Exception):
     """
     When the UTC day changes, which is about 3am Greek time in Summer
@@ -165,7 +167,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                 good_data_at = tm.time()
             else:
                 thisday = d['date']   
-                if thisday != lastday:
+                if thisday != lastday: # happens at UTC, i.e. 0300 Europe/Athens timezone.
                     # print("++ NEXT DAY", flush=True)
                     raise NewDay
                            
@@ -187,7 +189,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             lat = d['lat']
             lon = d['lon']
             if 'HDOP' in d:
-                if float(d['HDOP']) > 3 or lat =="":
+                if float(d['HDOP']) > HDOP_LIMIT or lat =="":
                     print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} ", flush=True) # last 2 digits always 33 or 67. They are strings.
             if lat != "":
                 rawf.write(raw)
@@ -197,7 +199,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     print(f"{parsed_data.msgID}  {thisday} {t} FAILED TO UPDATE RAW FILE, aborting.. ", flush=True) 
                     raise NewDay
 
-                if 'HDOP' in d and float(d['HDOP']) < 3: # rather crude.. 
+                if 'HDOP' in d and float(d['HDOP']) < HDOP_LIMIT: # rather crude.. 
                     # TO DO
                     # a 6-deep queue and ideally, calc average, weighted by HDOP.. hang on, this is actually a bit tricky...
                     # just pick the best out of the 6 then.
@@ -283,7 +285,7 @@ def readstream(stream: socket.socket):
                             continue
         except NewDay:
             # this is bad style. Really a GOTO statement.
-            print_summary("-- Next Day - restart logfile")
+            print_summary("-- Next Day - restart logfiles")
             continue
 
         except KeyboardInterrupt:
@@ -297,6 +299,7 @@ def readstream(stream: socket.socket):
             print_summary(f"generic EXCEPTION\n {e}")
             break
 
+        sys.exit(1)
 
 if __name__ == "__main__":
 
@@ -312,7 +315,6 @@ if __name__ == "__main__":
         print(f"Either with no parameters or with server ip and port, e.g.\n$ python nmealogger.py 0.0.0.0 65432", flush=True)
         exit()
         
-
     
     print(f"Opening socket {SERVER}:{PORT}...", flush=True)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
