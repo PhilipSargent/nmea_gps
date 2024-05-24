@@ -107,15 +107,13 @@ def print_summary(msg=None):
     stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
     dur = datetime.now() - start
     secs = dur.seconds + dur.microseconds / 1e6
-    print(f"{stamp} {msg}")
-
+    print(f"{stamp} {msg} Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB {msgcount:,d}")
     print(
     f"\n {totcount:,d} messages read in {secs:.2f} seconds.",
     f"\n {totgood:,d} lat/lon messages logged, at",
     f"\n {totgood/secs:.2f} msgs per second",
     f"\n {totqk:d} QK corruptions",
     f"\n {totparse:d} parse errors",
-    f"\n Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB",
     flush=True,
     )
 
@@ -142,6 +140,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     print(f"Unparsed data (utf8):",raw.decode("utf-8", "strict"), flush=True)
             except:
                 print(f"Unparsed data: (binary)",raw, flush=True)
+                msgparse += 1
             continue
         else:
             d = parsed_data.__dict__
@@ -154,7 +153,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             #pass
             
         # We need RMC for the date. Others only give time. 
-        # SInce this function restarts each parse error, it resets the date each time.
+        # Since this function restarts each parse error, it resets the date each time.
         # This is a bit over-protective.
         if 'date' in d:
             if 'thisday' not in locals(): # first date seen
@@ -245,6 +244,8 @@ def readstream(stream: socket.socket):
     # print(f"{start.strftime('%Y-%m-%d %H:%M')} - Memory footprint on starting: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB", flush=True)
  
 
+    # Note that NMEAreader skips any lines which are not NMEA GPS,
+    # so all the !AI... AIS messages are skipped as if they never existed.
     nmr = NMEAReader(
         stream,
         quitonerror = ERR_RAISE,
@@ -276,11 +277,9 @@ def readstream(stream: socket.socket):
                     while True:
                         try:
                             parsestream(nmr, af, archivefilename, rawf, rawfilename)
-                        except nme.NMEAParseError:
+                        except nme.NMEAParseError as e:
+                            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} Parse EXCEPTION\n {e}", flush=True)
                             msgparse += 1
-                            # ignore whole sentence, but this is OK:  continue
-                            # stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
-                            # print(f"{stamp} -- PARSE ERROR", flush=True)
                             continue
         except NewDay:
             # this is bad style. Really a GOTO statement.
@@ -295,7 +294,7 @@ def readstream(stream: socket.socket):
             print_summary(f"FileNotFound error: {archivefilename}  or  {rawfilename}, restarting with new file.\n {e}")
             break
         except Exception as e: 
-            print_summary(f"EXCEPTION {e}")
+            print_summary(f"generic EXCEPTION\n {e}")
             break
 
 
