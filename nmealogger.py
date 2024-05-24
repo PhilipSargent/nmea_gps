@@ -48,55 +48,95 @@ totparse = 0
 totqk = 0
 
 HDOP_LIMIT = 3
+MAX_WAIT = 10 * 60 # seconds
 
 class NewDay(Exception):
     """
     When the UTC day changes, which is about 3am Greek time in Summer
     """
+class Bad_stash:
+    """We keep the most recent, but poor data location, so that when time is up
+    we can output the best guess from the whole poor period
+    We are using it to store a tuple of (raw, hdop)
+
+    """
+    def __init__(self):
+        self.hdop = 99
+        self.raw = None
+        self.parsed = None
+        self.lat = None
+        self.lon = None
+        self.t = None
+    
+    def put(self, raw, parsed, hdop, lat, lon, t):
+        if hdop <= self.hdop: # overwrite even if equal, a later estimate better?
+            self.raw = raw
+            self.parsed = parsed
+            self.hdop = hdop
+            self.lat = lat
+            self.lon = lon
+            self.t = t
+            
+    def get(self):
+        if not self.raw: #  None
+            print("Stash empty. Cannot remove item.", flush=True)
+            return None
+        else:
+            return (self.raw, self.parsed, self.hdop, self.lat, self.lon, self.t)
+            
+    def flush(self):
+        self.__init__()
+        
+    def is_available(self):
+        if self.raw:
+            return True
+        else:
+            return False
+    
 class Stack:
-  """
-  A simple stack implementation with a maximum size.
-  We are using it to store tuples of (raw, hdop)
-  """
-  def __init__(self, max_size):
-    self.max_size = max_size
-    self.items = []
+    """
+    A simple stack implementation with a maximum size.
+    We are using it to store tuples of (raw, hdop)
+    """
+    def __init__(self, max_size):
+        self.max_size = max_size
+        self.items = []
 
-  def is_empty(self):
-    return len(self.items) == 0
+    def is_empty(self):
+        return len(self.items) == 0
 
-  def is_full(self):
-    return len(self.items) == self.max_size
+    def is_full(self):
+        return len(self.items) == self.max_size
 
-  def push(self, item):
-    if self.is_full():
-      print("Stack Overflow! Cannot add item.", flush=True)
-    else:
-      self.items.append(item)
+    def push(self, item):
+        if self.is_full():
+            print("Stack Overflow! Cannot add item.", flush=True)
+        else:
+            self.items.append(item)
 
-  def pop(self):
-    if self.is_empty():
-      print("Stack Underflow! Cannot remove item.", flush=True)
-      return None
-    else:
-      return self.items.pop()
+    # def pop(self):
+        # if self.is_empty():
+            # print("Stack Underflow! Cannot remove item.", flush=True)
+            # return None
+        # else:
+            # return self.items.pop()[0]
 
-  def flush(self):
-    self.items = []
+    def flush(self):
+        self.items = []
  
-  def best(self):
-    # for (raw, hdop) tuple, return raw value with lowest HDOP
-    besthdop = 99
-    for i in self.items:
-        raw, hdop = i
-        if hdop < besthdop:
-            besthdop = hdop
-            bestnmea = raw
-    return bestnmea
+    def best(self):
+        # for (raw, hdop) tuple, return raw value with lowest HDOP
+        besthdop = 99
+        for i in self.items:
+            raw, hdop = i
+            if hdop < besthdop:
+                besthdop = hdop
+                bestnmea = raw
+        return bestnmea
 
 # Create a module-level instance of the Stack class which is unique, i.e. a singleton
-stack_size = 6
-data_stack = Stack(stack_size)
+RUNNING_STACK = 6
+data_stack = Stack(RUNNING_STACK)
 
 def print_summary(msg=None):
     global totcount, totgood, totparse, totqk,  start
@@ -109,9 +149,12 @@ def print_summary(msg=None):
     stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
     dur = datetime.now() - start
     secs = dur.seconds + dur.microseconds / 1e6
+    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} - HHH", flush=True)
+    print(f"{msg} ")
+
     print(f"{stamp} {msg} Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB {msgcount:,d}")
     print(
-    f"\n {totcount:,d} messages read in {secs:.2f} seconds.",
+    f"\n {totcount:,d} messages read in {secs:.2f} seconds ({secs%3600:.2f} hours)",
     f"\n {totgood:,d} lat/lon messages logged, at",
     f"\n {totgood/secs:.2f} msgs per second",
     f"\n {totqk:d} QK corruptions",
@@ -119,11 +162,27 @@ def print_summary(msg=None):
     flush=True,
     )
 
+def strim(nmealat):
+    """Strims off the ..667 or ..333 at the end of the string
+    we do not need this pointless precision"""
+    st = str(nmealat)
+    if len(st) < 13:
+        return nmealat
+    
+    if st[10:] == "333":
+        st = st[:11]
+    if st[10:] == "667":
+        st = st[:10] + "7"
+    return float(st)
+    
 
 def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     """Runs indefinitely unless there is a parse error or interrupt when it produces an exception
     """
     global msgcount, msggood, msgparse, msgqk, data_stack
+    
+    poor_data = Bad_stash()
+    got_data_at = tm.time()
     
     for (raw, parsed_data) in nmr:
         if not archivefilename.is_file():
@@ -185,12 +244,12 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
         else:
             hdop = f"{float(d['HDOP']):4.2f}"
 
-        if 'lat' in d:
-            lat = d['lat']
-            lon = d['lon']
+        if 'lat' in d and 'lon' in d:
+            lat = strim(d['lat'])    
+            lon = strim(d['lon'])
             if 'HDOP' in d:
                 if float(d['HDOP']) > HDOP_LIMIT or lat =="":
-                    print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} ", flush=True) # last 2 digits always 33 or 67. They are strings.
+                    print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} {d['HDOP']}", flush=True) # last 2 digits always 33 or 67. They are strings.
             if lat != "":
                 rawf.write(raw)
                 rawf.flush()
@@ -199,37 +258,45 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     print(f"{parsed_data.msgID}  {thisday} {t} FAILED TO UPDATE RAW FILE, aborting.. ", flush=True) 
                     raise NewDay
 
-                if 'HDOP' in d and float(d['HDOP']) < HDOP_LIMIT: # rather crude.. 
-                    # TO DO
-                    # a 6-deep queue and ideally, calc average, weighted by HDOP.. hang on, this is actually a bit tricky...
-                    # just pick the best out of the 6 then.
-                    
-                    # TO DO : CHECK that these data points are all within a second or two ! Otherwise we throw away data we need.
-                    
-                    # Push data to the stack
-                    data_stack.push((raw, float(d['HDOP'])))
-                    if data_stack.is_full():
-                        af.write(data_stack.best())
-                        af.flush()
-                        data_stack.flush()
-                        good_data_at = tm.time()
-                        msggood += 1
-                        # print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} ", flush=True)
+                if 'HDOP' in d:
+                    if float(d['HDOP']) >= HDOP_LIMIT: # rather crude.. 
+                        poor_data.put(raw, parsed_data, float(d['HDOP']), lat, lon, t)
+                    else:
+                        # TO DO
+                        # a 6-deep queue and ideally, calc average, weighted by HDOP.. hang on, this is actually a bit tricky...
+                        # just pick the best out of the 6 then.
+                        
+                        # TO DO : CHECK that these data points are all within a second or two ! Otherwise we throw away data we need.
+                        
+                        # Push data to the stack
+                        data_stack.push((raw, float(d['HDOP'])))
+                        if data_stack.is_full():
+                            af.write(data_stack.best())
+                            af.flush()
+                            data_stack.flush()
+                            got_data_at = tm.time()
+                            msggood += 1
+                        
                         
                 now = tm.time()
-                time_since_good = 10 * 60 # ten minutes
-                if now - good_data_at > time_since_good: # seconds
-                    # log anyway, even if bad quality data
+                if now - got_data_at > MAX_WAIT: # seconds
+                    # Add to log anyway, even if bad quality data
                     # should write an extra log file about these..
-                    af.write(raw)
-                    af.flush()
-                    print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} BAD DATA BUT USING ANYWAY ") 
-                    good_data_at = start = tm.time()
+                    if poor_data.is_available():
+                        poor_raw, poor_parsed_data, poor_hdop, poor_lat, poor_lon, poor_t = poor_data.get()
+                        af.write(poor_raw)
+                        af.flush()
+                        print(f"{poor_parsed_data.msgID}  {thisday} {poor_t} {poor_lat=:<13} {poor_lon=:<13} {poor_hdop=} POOR DATA BUT USING ANYWAY AS TIMEOUT") 
+                        poor_data.flush()
+                        got_data_at = tm.time()
+                    else:
+                        print(f"Empty poor data stash.  {thisday} computer time: {now} TIMEOUT but not even poor data available") 
+                    got_data_at = tm.time()
             else:
                     lat = 0
                     lon = 0
 
-        if msgcount in [0, 10, 500, 1000]: 
+        if msgcount in [0, 10, 500, 1000, 10000]: 
             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}", flush=True)
         msgcount += 1            
         if msgcount % 100000 == 0: 
@@ -283,6 +350,10 @@ def readstream(stream: socket.socket):
                             print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} Parse EXCEPTION\n {e}", flush=True)
                             msgparse += 1
                             continue
+                        except Exception as e: 
+                            print_summary(f"generic EXCEPTION in parsestream()\n {e}")
+                            raise e
+                            continue
         except NewDay:
             # this is bad style. Really a GOTO statement.
             print_summary("-- Next Day - restart logfiles")
@@ -297,6 +368,7 @@ def readstream(stream: socket.socket):
             break
         except Exception as e: 
             print_summary(f"generic EXCEPTION\n {e}")
+            raise e
             break
 
         sys.exit(1)
