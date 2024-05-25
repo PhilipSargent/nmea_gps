@@ -31,6 +31,7 @@ import pynmeagps.exceptions as nme
 
 from pathlib import Path
 from datetime import datetime, date
+from zoneinfo import ZoneInfo
 
 from pynmeagps.nmeareader import NMEAReader
 from pynmeagps.nmeatypes_core import (
@@ -48,17 +49,19 @@ totparse = 0
 totqk = 0
 
 HDOP_LIMIT = 3
-MAX_WAIT = 10 * 60 # seconds
+MAX_WAIT = 10 * 60 # 10 minutes in seconds
+
+
+TZ = ZoneInfo('Europe/Athens')
 
 class NewDay(Exception):
     """
     When the UTC day changes, which is about 3am Greek time in Summer
     """
+    
 class Bad_stash:
     """We keep the most recent, but poor data location, so that when time is up
     we can output the best guess from the whole poor period
-    We are using it to store a tuple of (raw, hdop)
-
     """
     def __init__(self):
         self.hdop = 99
@@ -146,19 +149,17 @@ def print_summary(msg=None):
     totparse += msgparse
     totqk += msgqk
     
-    stamp = datetime.now().strftime('%Y-%m-%d %H:%M')
-    dur = datetime.now() - start
+    stamp = datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')
+    dur = datetime.now(tz=TZ) - start
     secs = dur.seconds + dur.microseconds / 1e6
-    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} - HHH", flush=True)
-    print(f"{msg} ")
 
-    print(f"{stamp} {msg} Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB {msgcount:,d}")
+    print(f"{stamp} {msg} Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB {msgcount:,d}", flush=True)
     print(
-    f"\n {totcount:,d} messages read in {secs:.2f} seconds ({secs%3600:.2f} hours)",
-    f"\n {totgood:,d} lat/lon messages logged, at",
-    f"\n {totgood/secs:.2f} msgs per second",
-    f"\n {totqk:d} QK corruptions",
-    f"\n {totparse:d} parse errors",
+    f"\n {totcount:,d} messages read in {secs:.2f} seconds ({secs/3600:.2f} hours)",
+    f"\n {totgood:,d} messages with valid lat/lon logged,",
+    f"\n   {totgood/secs:.2f} msgs per second",
+    f"\n   {totqk:,d} QK corruptions",
+    f"\n   {totparse:,d} parse errors",
     flush=True,
     )
 
@@ -249,13 +250,13 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             lon = strim(d['lon'])
             if 'HDOP' in d:
                 if float(d['HDOP']) > HDOP_LIMIT or lat =="":
-                    print(f"{parsed_data.msgID}  {thisday} {t} {lat=:<13} {lon=:<13} {hdop=} {d['HDOP']}", flush=True) # last 2 digits always 33 or 67. They are strings.
+                    print(f"{parsed_data.msgID}  {thisday} {t} UTC  {lat=:<13} {lon=:<13} {hdop=} {d['HDOP']}", flush=True) # last 2 digits always 33 or 67. They are strings.
             if lat != "":
                 rawf.write(raw)
                 rawf.flush()
                 post_size = rawfilename.stat()
                 if post_size <= pre_size:
-                    print(f"{parsed_data.msgID}  {thisday} {t} FAILED TO UPDATE RAW FILE, aborting.. ", flush=True) 
+                    print(f"{parsed_data.msgID}  {thisday} {t} UTC  - FAILED TO UPDATE RAW FILE, aborting.. ", flush=True) 
                     raise NewDay
 
                 if 'HDOP' in d:
@@ -297,10 +298,10 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     lon = 0
 
         if msgcount in [0, 10, 500, 1000, 10000]: 
-            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}", flush=True)
+            print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}", flush=True)
         msgcount += 1            
         if msgcount % 100000 == 0: 
-            print_summary(msg="ok...")
+            print_summary(msg="")
  
 def readstream(stream: socket.socket):
     """
@@ -308,9 +309,9 @@ def readstream(stream: socket.socket):
     """
     global totcount, totgood, totparse, totqk, msgcount, msggood, msgparse, msgqk, start
 
-    start = datetime.now() # This is timezone time, not UTC which comes from the GPS signal
+    start = datetime.now(tz=TZ) # This is timezone time, not UTC which comes from the GPS signal
     
-    # print(f"{start.strftime('%Y-%m-%d %H:%M')} - Memory footprint on starting: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB", flush=True)
+    # print(f"{start.strftime('%Y-%m-%d %H:%M %Z')} - Memory footprint on starting: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB", flush=True)
  
 
     # Note that NMEAreader skips any lines which are not NMEA GPS,
@@ -336,7 +337,7 @@ def readstream(stream: socket.socket):
         msgqk = 0
 
         try:
-            newstart = datetime.now() # This is timezone time, not UTC which comes from the GPS signal
+            newstart = datetime.now(tz=TZ) # This is timezone time, not UTC which comes from the GPS signal
             archivefilename = archivedir / (newstart.strftime('%Y-%m-%d_%H%M') +".nmea")
             rawfilename = rawdir / (newstart.strftime('%Y-%m-%d_%H%M') +".nmea")
                 
@@ -347,7 +348,7 @@ def readstream(stream: socket.socket):
                         try:
                             parsestream(nmr, af, archivefilename, rawf, rawfilename)
                         except nme.NMEAParseError as e:
-                            print(f"{datetime.now().strftime('%Y-%m-%d %H:%M')} Parse EXCEPTION\n {e}", flush=True)
+                            print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} Parse EXCEPTION\n {e}", flush=True)
                             msgparse += 1
                             continue
                         except Exception as e: 
