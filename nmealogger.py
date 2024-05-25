@@ -144,10 +144,10 @@ data_stack = Stack(RUNNING_STACK)
 def print_summary(msg=None):
     global totcount, totgood, totparse, totqk,  start
     
-    totcount += msgcount
-    totgood += msggood
-    totparse += msgparse
-    totqk += msgqk
+    totcount = msgcount
+    totgood = msggood
+    totparse = msgparse
+    totqk = msgqk
     
     stamp = datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')
     dur = datetime.now(tz=TZ) - start
@@ -196,8 +196,10 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
         
             if not parsed_data:
                 # skip unparseable, even if there is no exception thrown - happens when QK butts in.
+                # Hmm. this is not working...
                 try:
                     if "Quark-elec:No valid AIS signal." in raw.decode("utf-8", "strict"):
+                        print(f"Quark-elec corruption (utf8):",raw.decode("utf-8", "strict"), flush=True)
                         msgqk += 1
                     else:
                         print(f"Unparsed data (utf8):",raw.decode("utf-8", "strict"), flush=True)
@@ -306,7 +308,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                 
     except nme.NMEAParseError as e:
         print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} Parse EXCEPTION in parsestream\n {e}", flush=True)
-        if raw:
+        if 'raw' in locals():
             print(f"raw:{raw}", flush=True)
         msgparse += 1
         # clears exception so calling routine just continues its while True loop
@@ -339,7 +341,7 @@ def readstream(stream: socket.socket):
     rawdir = parentdir / Path("nmea_raw") / Path(start.strftime('%Y-%m'))
     rawdir.mkdir(parents=True, exist_ok=True)
  
-    while True:
+    while True:  # when prse errors caused this to restart, this was sensible. But now all exceptions terminate except NewDay.
         msgcount = 0
         msggood = 0
         msgparse = 0
@@ -363,7 +365,6 @@ def readstream(stream: socket.socket):
                         except Exception as e: 
                             print_summary(f"generic EXCEPTION in parsestream()\n {e}")
                             raise e
-                            continue
         except NewDay:
             # this is bad style. Really a GOTO statement.
             print_summary("-- Next Day - restart logfiles")
