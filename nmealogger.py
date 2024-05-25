@@ -185,123 +185,132 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     poor_data = Bad_stash()
     got_data_at = tm.time()
     
-    for (raw, parsed_data) in nmr:
-        if not archivefilename.is_file():
-            raise FileNotFoundError( errno.ENOENT, os.strerror(errno.ENOENT), archivefilename)
-        if not rawfilename.is_file():
-            raise FileNotFoundError( errno.ENOENT, os.strerror(errno.ENOENT), rawfilename)
-            
-        pre_size = rawfilename.stat()
-    
-        if not parsed_data:
-            # skip unparseable, even if there is no exception thrown - happens when QK butts in.
-            try:
-                if "Quark-elec:No valid AIS signal." in raw.decode("utf-8", "strict"):
-                    msgqk += 1
-                else:
-                    print(f"Unparsed data (utf8):",raw.decode("utf-8", "strict"), flush=True)
-            except:
-                print(f"Unparsed data: (binary)",raw, flush=True)
-                msgparse += 1
-            continue
-        else:
-            d = parsed_data.__dict__
+    try:
+        for (raw, parsed_data) in nmr: # nmr is an infinite iterator
+            if not archivefilename.is_file():
+                raise FileNotFoundError( errno.ENOENT, os.strerror(errno.ENOENT), archivefilename)
+            if not rawfilename.is_file():
+                raise FileNotFoundError( errno.ENOENT, os.strerror(errno.ENOENT), rawfilename)
+                
+            pre_size = rawfilename.stat()
         
-        # GSV is the number of satellites in view.. drop
-        # GSA gives PDOP as well as HDOP and VDOP, but we don't need it. This is the only source for VDOP
-        # VTG is course over ground, but this is instantaneous so useless for us.
-        #if parsed_data.msgID not in ['GSV', 'GSA', 'VTG']:
-            #print(f"{raw}")
-            #pass
-            
-        # We need RMC for the date. Others only give time. 
-        # Since this function restarts each parse error, it resets the date each time.
-        # This is a bit over-protective.
-        if 'date' in d:
-            if 'thisday' not in locals(): # first date seen
-                thisday = d['date']
-                lastday = thisday
-                # print(f"++ Set today's date {thisday}", flush=True)
-                af.write(raw) # write the date line to the filtered archive just the once
-                af.flush()
-                good_data_at = tm.time()
+            if not parsed_data:
+                # skip unparseable, even if there is no exception thrown - happens when QK butts in.
+                try:
+                    if "Quark-elec:No valid AIS signal." in raw.decode("utf-8", "strict"):
+                        msgqk += 1
+                    else:
+                        print(f"Unparsed data (utf8):",raw.decode("utf-8", "strict"), flush=True)
+                except:
+                    print(f"Unparsed data: (binary)",raw, flush=True)
+                    msgparse += 1
+                continue
             else:
-                thisday = d['date']   
-                if thisday != lastday: # happens at UTC, i.e. 0300 Europe/Athens timezone.
-                    # print("++ NEXT DAY", flush=True)
-                    raise NewDay
-                           
-        if 'thisday' not in locals(): # ie first time since restart
-            # print("-- No date yet...", flush=True)
-            continue # ignore all NMEA until we get a date       
-
-        if 'time' in d:
-            t = d['time']
-        else: 
-            t = 0
+                d = parsed_data.__dict__
             
-        if 'HDOP' not in d:
-            hdop = ""
-        else:
-            hdop = f"{float(d['HDOP']):4.2f}"
+            # GSV is the number of satellites in view.. drop
+            # GSA gives PDOP as well as HDOP and VDOP, but we don't need it. This is the only source for VDOP
+            # VTG is course over ground, but this is instantaneous so useless for us.
+            #if parsed_data.msgID not in ['GSV', 'GSA', 'VTG']:
+                #print(f"{raw}")
+                #pass
+                
+            # We need RMC for the date. Others only give time. 
+            # Since this function restarts each parse error, it resets the date each time.
+            # This is a bit over-protective.
+            if 'date' in d:
+                if 'thisday' not in locals(): # first date seen
+                    thisday = d['date']
+                    lastday = thisday
+                    # print(f"++ Set today's date {thisday}", flush=True)
+                    af.write(raw) # write the date line to the filtered archive just the once
+                    af.flush()
+                    good_data_at = tm.time()
+                else:
+                    thisday = d['date']   
+                    if thisday != lastday: # happens at UTC, i.e. 0300 Europe/Athens timezone.
+                        # print("++ NEXT DAY", flush=True)
+                        raise NewDay
+                               
+            if 'thisday' not in locals(): # ie first time since restart
+                # print("-- No date yet...", flush=True)
+                continue # ignore all NMEA until we get a date       
 
-        if 'lat' in d and 'lon' in d:
-            lat = strim(d['lat'])    
-            lon = strim(d['lon'])
-            if 'HDOP' in d:
-                if float(d['HDOP']) > HDOP_LIMIT or lat =="":
-                    print(f"{parsed_data.msgID}  {thisday} {t} UTC  {lat=:<13} {lon=:<13} {hdop=} {d['HDOP']}", flush=True) # last 2 digits always 33 or 67. They are strings.
-            if lat != "":
-                rawf.write(raw)
-                rawf.flush()
-                post_size = rawfilename.stat()
-                if post_size <= pre_size:
-                    print(f"{parsed_data.msgID}  {thisday} {t} UTC  - FAILED TO UPDATE RAW FILE, aborting.. ", flush=True) 
-                    raise NewDay
+            if 'time' in d:
+                t = d['time']
+            else: 
+                t = 0
+                
+            if 'HDOP' not in d:
+                hdop = ""
+            else:
+                hdop = f"{float(d['HDOP']):4.2f}"
 
+            if 'lat' in d and 'lon' in d:
+                lat = strim(d['lat'])    
+                lon = strim(d['lon'])
                 if 'HDOP' in d:
-                    if float(d['HDOP']) >= HDOP_LIMIT: # rather crude.. 
-                        poor_data.put(raw, parsed_data, float(d['HDOP']), lat, lon, t)
-                    else:
-                        # TO DO
-                        # a 6-deep queue and ideally, calc average, weighted by HDOP.. hang on, this is actually a bit tricky...
-                        # just pick the best out of the 6 then.
-                        
-                        # TO DO : CHECK that these data points are all within a second or two ! Otherwise we throw away data we need.
-                        
-                        # Push data to the stack
-                        data_stack.push((raw, float(d['HDOP'])))
-                        if data_stack.is_full():
-                            af.write(data_stack.best())
-                            af.flush()
-                            data_stack.flush()
-                            got_data_at = tm.time()
-                            msggood += 1
-                        
-                        
-                now = tm.time()
-                if now - got_data_at > MAX_WAIT: # seconds
-                    # Add to log anyway, even if bad quality data
-                    # should write an extra log file about these..
-                    if poor_data.is_available():
-                        poor_raw, poor_parsed_data, poor_hdop, poor_lat, poor_lon, poor_t = poor_data.get()
-                        af.write(poor_raw)
-                        af.flush()
-                        print(f"{poor_parsed_data.msgID}  {thisday} {poor_t} {poor_lat=:<13} {poor_lon=:<13} {poor_hdop=} POOR DATA BUT USING ANYWAY AS TIMEOUT") 
-                        poor_data.flush()
-                        got_data_at = tm.time()
-                    else:
-                        print(f"Empty poor data stash.  {thisday} computer time: {now} TIMEOUT but not even poor data available") 
-                    got_data_at = tm.time()
-            else:
-                    lat = 0
-                    lon = 0
+                    if float(d['HDOP']) > HDOP_LIMIT or lat =="":
+                        print(f"{parsed_data.msgID}  {thisday} {t} UTC  {lat=:<13} {lon=:<13} {hdop=} {d['HDOP']}", flush=True) # last 2 digits always 33 or 67. They are strings.
+                if lat != "":
+                    rawf.write(raw)
+                    rawf.flush()
+                    post_size = rawfilename.stat()
+                    if post_size <= pre_size:
+                        print(f"{parsed_data.msgID}  {thisday} {t} UTC  - FAILED TO UPDATE RAW FILE, aborting.. ", flush=True) 
+                        raise NewDay
 
-        if msgcount in [0, 10, 500, 1000, 10000]: 
-            print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}", flush=True)
-        msgcount += 1            
-        if msgcount % 100000 == 0: 
-            print_summary(msg="")
+                    if 'HDOP' in d:
+                        if float(d['HDOP']) >= HDOP_LIMIT: # rather crude.. 
+                            poor_data.put(raw, parsed_data, float(d['HDOP']), lat, lon, t)
+                        else:
+                            # TO DO
+                            # a 6-deep queue and ideally, calc average, weighted by HDOP.. hang on, this is actually a bit tricky...
+                            # just pick the best out of the 6 then.
+                            
+                            # TO DO : CHECK that these data points are all within a second or two ! Otherwise we throw away data we need.
+                            
+                            # Push data to the stack
+                            data_stack.push((raw, float(d['HDOP'])))
+                            if data_stack.is_full():
+                                af.write(data_stack.best())
+                                af.flush()
+                                data_stack.flush()
+                                got_data_at = tm.time()
+                                msggood += 1
+                            
+                            
+                    now = tm.time()
+                    if now - got_data_at > MAX_WAIT: # seconds
+                        # Add to log anyway, even if bad quality data
+                        # should write an extra log file about these..
+                        if poor_data.is_available():
+                            poor_raw, poor_parsed_data, poor_hdop, poor_lat, poor_lon, poor_t = poor_data.get()
+                            af.write(poor_raw)
+                            af.flush()
+                            print(f"{poor_parsed_data.msgID}  {thisday} {poor_t} {poor_lat=:<13} {poor_lon=:<13} {poor_hdop=} POOR DATA BUT USING ANYWAY AS TIMEOUT") 
+                            poor_data.flush()
+                            got_data_at = tm.time()
+                        else:
+                            print(f"Empty poor data stash.  {thisday} computer time: {now} TIMEOUT but not even poor data available") 
+                        got_data_at = tm.time()
+                else:
+                        lat = 0
+                        lon = 0
+
+            if msgcount in [0, 10, 500, 1000, 10000]: 
+                print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}", flush=True)
+            msgcount += 1            
+            if msgcount % 100000 == 0: 
+                print_summary(msg="")
+                
+    except nme.NMEAParseError as e:
+        print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} Parse EXCEPTION in parsestream\n {e}", flush=True)
+        if raw:
+            print(f"raw:{raw}", flush=True)
+        msgparse += 1
+        # clears exception so calling routine just continues its while True loop
+
  
 def readstream(stream: socket.socket):
     """
@@ -347,10 +356,10 @@ def readstream(stream: socket.socket):
                     while True:
                         try:
                             parsestream(nmr, af, archivefilename, rawf, rawfilename)
-                        except nme.NMEAParseError as e:
-                            print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} Parse EXCEPTION\n {e}", flush=True)
-                            msgparse += 1
-                            continue
+                        # except nme.NMEAParseError as e:
+                            # print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} Parse EXCEPTION\n {e}", flush=True)
+                            # msgparse += 1
+                            # continue
                         except Exception as e: 
                             print_summary(f"generic EXCEPTION in parsestream()\n {e}")
                             raise e
