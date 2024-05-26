@@ -1,17 +1,17 @@
-"""Gemini created code to concatenate all the nmea files in a given directory
+"""Concatenate all the nmea files in a given directory,
+and to create a concatenated file for each day. 
+
+Note that 'day' means in EEST timezone
+as it works from the filenames, it is not a UTC 'day'.
+
+Rewritten from a skeleton created by Gemini.
 """
+
 import sys
 import shutil
 from pathlib import Path
 
-
 BUFSIZE = 4096
-
-def sort_filenames(filenames):
-  """
-  Sorts a list of filenames in dictionary order (case-insensitive).
-  """
-  return sorted(filenames, key=str.lower)  # Sort by lowercase filename
 
 def concatenate_sorted_files(directory_path, stitched_path):
     """
@@ -22,7 +22,7 @@ def concatenate_sorted_files(directory_path, stitched_path):
       sf: The filehandle to the target
     """
         
-    # Get nmea filepaths sorted by lowercase name. We have made these in datetime UTC order.
+    # Get nmea filepaths (Path objects) sorted by lowercase name. We have made these in datetime UTC order.
     filepaths = sorted(directory_path.iterdir(), key=lambda p: p.name.lower())
     filepaths.remove(stitched_path)
     for filepath in filepaths:
@@ -38,7 +38,8 @@ def concatenate_sorted_files(directory_path, stitched_path):
             with filepath.open('rb', buffering=BUFSIZE) as ifile:
                 print(filepath.name)
                 shutil.copyfileobj(ifile, sf)
-              
+    
+    # COnstruct a file for each 'day' midnight to midnight EEST
     daypaths = {}
     for filepath in filepaths:
         if filepath.name[:2] == "20" and len(filepath.stem) == 15:
