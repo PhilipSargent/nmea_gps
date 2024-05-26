@@ -1,24 +1,23 @@
 """
-Simple CLI utility which creates a GPX track file
-from a binary NMEA dump. Dump must contain NMEA GGA messages and an initial RMG messsage to get the date.
+Simple CLI utility which creates a GPX track file from a binary NMEA dump. 
+Dump must contain NMEA GGA messages and an initial RMG messsage to get the date.
 
 NOTE: input file has to be CRLF line terminated as that is the NMEA standard.
 
-EDITED by Philip Sargent to read date from GPRMC not just assume it is today.
+EDITED by Philip Sargent to read date from GPRMC not just assume it is 'today'.
 renamed as nmeagpx.py
 but also see all these : https://duckduckgo.com/?q=nmea2gpx&atb=v316-1&ia=web
 
 
 https://github.com/semuconsulting/pynmeagps
+    Usage originally:
+    python3 gpxtracker.py infile="pygpsdata.log" outdir="."
 
-Usage originally:
-python3 gpxtracker.py infile="pygpsdata.log" outdir="."
-
-There are a number of free online GPX viewers
-e.g. https://gpx-viewer.com/view
-Could have used minidom for XML but didn't seem worth it.
-Created on 7 Mar 2021
-@author: semuadmin
+    There are a number of free online GPX viewers
+    e.g. https://gpx-viewer.com/view
+    Could have used minidom for XML but didn't seem worth it.
+    Created on 7 Mar 2021
+    @author: semuadmin
 """
 
 # pylint: disable=consider-using-with
@@ -33,7 +32,7 @@ import pynmeagps.exceptions as nme
 from pynmeagps.nmeareader import NMEAReader
 from pynmeagps.nmeahelpers import planar, haversine
 
-NM_PER_KM = 0.5399568
+M_PER_NM = 1852 # 1929 First International Extraordinary Hydrographic Conference in Monaco 
 
 XML_HDR = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 
@@ -139,8 +138,7 @@ class NMEATracker:
 
     def reader(self, validate=False):
         """
-        Reads and parses UBX message data from stream
-        using UBXReader iterator method
+        Reads and parses NMEA message data from stream
         """
         bb = BoundingBox()
 
@@ -185,6 +183,7 @@ class NMEATracker:
                         fix = "none"
                         
                     bb.update(msg.lat, msg.lon)
+                    
                     self.write_gpx_trkpnt(
                         strim(msg.lat),
                         strim(msg.lon),
@@ -200,7 +199,7 @@ class NMEATracker:
 
         self.write_gpx_tlr()
 
-        print(f"{i:6d} GGA message{'' if i == 1 else 's'} -> trackpoints from {self._filename.name} to {self._trkfname.name}")
+        print(f"{i:6d} GGA message{'' if i == 1 else 's'} -> trackpoints from {self._filename.name} to {self._trkfname.name} box: {bb.diameter():.1f} m")
         return bb
 
     def write_gpx_hdr(self):
@@ -300,12 +299,12 @@ def main(indir, insuffix):
         bound_box = tkr.reader()
         tkr.close()
         
-        print(f"Box diameter: {bound_box.diameter():.1f} m", bound_box.report())
+        # print(f"Box diameter: {bound_box.diameter():.1f} m", bound_box.report())
         if bound_box.diameter() > 100: # 100 metres
             trips.append((i.name, bound_box.diameter()))
     for t in trips:
         name, diam = t
-        print(f"{name} ~ {(diam/1000)*NM_PER_KM:.2f} miles(naut.)")
+        print(f"{name} ~{diam/M_PER_NM:6.2f} NM")
     print("Finished all files")
 
 
