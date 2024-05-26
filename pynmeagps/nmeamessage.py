@@ -7,6 +7,7 @@ Created on 04 Mar 2021
 :copyright: SEMU Consulting © 2021
 :license: BSD 3-Clause
 """
+
 # pylint: disable=invalid-name, too-many-instance-attributes
 
 import struct
@@ -204,7 +205,18 @@ class NMEAMessage:
             # some attribute values have been provided,
             # the rest will be set to a nominal value
             else:
-                val = kwargs.get(keyr, self.nomval(att))
+                if att == nmt.LND and hasattr(self, "lon"):
+                    if isinstance(self.lon, (int, float)):
+                        val = "W" if self.lon < 0 else "E"
+                    else:
+                        val = "E"
+                elif att == nmt.LAD and hasattr(self, "lat"):
+                    if isinstance(self.lat, (int, float)):
+                        val = "S" if self.lat < 0 else "N"
+                    else:
+                        val = "N"
+                else:
+                    val = kwargs.get(keyr, self.nomval(att))
                 vals = self.val2str(val, att, self._hpnmeamode)
                 self._payload.append(vals)
 
@@ -214,13 +226,14 @@ class NMEAMessage:
             return pindex
 
         setattr(self, keyr, val)  # add attribute to NMEAMessage object
-        # adjust sign of decimal lon (W = -ve) or lat (S = -ve)
-        if att == nmt.LND and hasattr(self, "lon"):
-            if isinstance(self.lon, float) and val == "W":
-                self.lon = -abs(self.lon)
-        elif att == nmt.LAD and hasattr(self, "lat"):
-            if isinstance(self.lat, float) and val == "S":
-                self.lat = -abs(self.lat)
+        if "payload" in kwargs:
+            # override sign of lat/lon according to NS and EW values
+            if att == nmt.LND and hasattr(self, "lon"):
+                if isinstance(self.lon, (int, float)):
+                    self.lon = -abs(self.lon) if val == "W" else abs(self.lon)
+            elif att == nmt.LAD and hasattr(self, "lat"):
+                if isinstance(self.lat, (int, float)):
+                    self.lat = -abs(self.lat) if val == "S" else abs(self.lat)
         pindex += 1  # move on to next attribute in payload definition
 
         return pindex
@@ -237,7 +250,10 @@ class NMEAMessage:
             key = self.msgID
             if key in nmt.PROP_MSGIDS:  # proprietary, first element is msgId
                 if "payload" in kwargs:
-                    key += self._payload[0]
+                    if key == "ASHR" and self._payload[0][1].isdigit():
+                        pass  # exception for PASHR pitch and roll sentence without msgId
+                    else:
+                        key += self._payload[0]
                 elif "msgId" in kwargs:
                     key += kwargs["msgId"]
                 else:
@@ -245,6 +261,7 @@ class NMEAMessage:
                         f"P{key} message definitions must "
                         + "include payload or msgId keyword arguments."
                     )
+            key = key.upper()
             if self._mode == nmt.POLL:
                 return nmp.NMEA_PAYLOADS_POLL[key]
             if self._mode == nmt.SET:
@@ -347,8 +364,14 @@ class NMEAMessage:
         :rtype: str
         """
 
-        if self.talker == "P" and self._msgID in nmt.PROP_MSGIDS:
-            return self._talker + self._msgID + self.msgId  # pylint: disable=no-member
+        # pylint: disable=no-member
+
+        if (
+            self._talker == "P"
+            and self._msgID in nmt.PROP_MSGIDS
+            and hasattr(self, "msgId")
+        ):
+            return self._talker + self._msgID + self.msgId
         return self._talker + self._msgID
 
     @property

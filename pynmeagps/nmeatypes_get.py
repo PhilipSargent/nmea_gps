@@ -402,8 +402,25 @@ NMEA_PAYLOADS_GET = {
         "ltzn": ST,
     },
     # *********************************************
-    # JVCKENWOOD PROPRIETARY MESSAGES
+    # JVC KENWOOD PROPRIETARY MESSAGES
     # *********************************************
+    "KLDS": {
+        "time": TM,
+        "status": CH,
+        "lat": LA,
+        "NS": LAD,
+        "lon": LN,
+        "EW": LND,
+        "sog": DE,
+        "cog": DE,
+        "dat": DT,
+        "declination": DE,
+        "dec_dir": CH,
+        "fleet": DE,
+        "senderid": ST,
+        "senderstatus": DE,
+        "reserved": DE,
+    },
     "KLSH": {
         "lat": LA,
         "NS": LAD,
@@ -413,6 +430,60 @@ NMEA_PAYLOADS_GET = {
         "status": CH,
         "fleetId": ST,
         "deviceId": ST,
+    },
+    "KNDS": {
+        "time": TM,
+        "status": CH,
+        "lat": LA,
+        "NS": LAD,
+        "lon": LN,
+        "EW": LND,
+        "sog": DE,
+        "cog": DE,
+        "date": DT,
+        "declination": DE,
+        "dec_dir": CH,
+        "senderid": ST,
+        "senderstatus": DE,
+        "reserved": DE,
+    },
+    "KNSH": {
+        "lat": LA,
+        "NS": LAD,
+        "lon": LN,
+        "EW": LND,
+        "time": TM,
+        "status": CH,
+        "senderid": ST,
+    },
+    "KWDWPL": {
+        "time": TM,
+        "status": CH,
+        "lat": LA,
+        "NS": LAD,
+        "lon": LN,
+        "EW": LND,
+        "sog": DE,
+        "cog": DE,
+        "date": DT,
+        "alt": DE,
+        "wpt": ST,
+        "ts": ST,
+    },
+    # *********************************************
+    # MAGELLAN PROPRIETARY MESSAGES
+    # *********************************************
+    "MGNWPL": {
+        "lat": LA,
+        "NS": LAD,
+        "lon": LN,
+        "EW": LND,
+        "alt": DE,
+        "alt_unit": CH,
+        "wpt": ST,
+        "comment": ST,
+        "icon": ST,
+        "type": ST,
     },
     # *********************************************
     # GARMIN PROPRIETARY MESSAGES
@@ -559,6 +630,19 @@ NMEA_PAYLOADS_GET = {
     # Trimble Proprietary message types
     # https://receiverhelp.trimble.com/alloy-gnss/en-us/NMEA-0183messages_MessageOverview.html
     # ***************************************************************
+    "ASHR": {
+        "utctime": TM,
+        "trueHdg": DE,
+        "trueHdgInd": CH,  # "T"
+        "roll": DE,
+        "pitch": DE,
+        "reserved": ST,
+        "rollAcc": DE,
+        "pitchAcc": DE,
+        "hdgAcc": DE,
+        "gnssQual": IN,
+        "imuAlign": IN,
+    },
     "ASHRALR": {
         "msgId": ST,  # "ALR"
         "alarmCode": IN,
@@ -683,19 +767,6 @@ NMEA_PAYLOADS_GET = {
         "msgType": ST,
         "lastMsgInt": DE,
         "lastMsgAge": DE,
-    },
-    "ASHRHR": {
-        "utctime": TM,
-        "trueHdg": DE,
-        "trueHdgInd": CH,  # "T"
-        "roll": DE,
-        "pitch": DE,
-        "reserved": ST,
-        "rollAcc": DE,
-        "pitchAcc": DE,
-        "hdgAcc": DE,
-        "gnssQual": IN,
-        "imuAlign": IN,
     },
     "ASHRHPR": {
         "msgId": ST,  # "HPR"
@@ -1183,6 +1254,21 @@ NMEA_PAYLOADS_GET = {
         "sip": IN,
         "PDOP": DE,
         "unit": CH,  # 'M'
+    },
+    # *********************************************
+    # Furuno
+    # https://www.furuno.com/en/support/sdk/
+    # *********************************************
+    "FECGPATT": {
+        "msgId": ST,  # 'GPatt'
+        "yaw": DE,
+        "pitch": DE,
+        "roll": DE,
+    },
+    "FECGPHVE": {
+        "msgId": ST,  # 'GPhve'
+        "heave": DE,
+        "status": CH,  # 'A'
     },
     # *********************************************
     # Dummy message for error testing
