@@ -71,7 +71,8 @@ class NMEATracker:
         if not self._filename.is_file():
             print("NOT A FILE")
         else:
-            print(f"opening {self._filename}")
+            #print(f"opening {self._filename}")
+            pass
         try:
             self._infile = open(self._filename, "rb")
             self._connected = True
@@ -95,7 +96,7 @@ class NMEATracker:
         self._nmeareader = NMEAReader(self._infile, validate=validate)
 
         self.write_gpx_hdr()
-        print(self._nmeareader, self._infile)
+        #print(self._nmeareader, self._infile)
         for _, msg in self._nmeareader:  # invokes iterator method
             n += 1
             try:
@@ -103,13 +104,13 @@ class NMEATracker:
                 if 'date' in d and d['date'] != "": # only RMC, but get it anywhere if it exists
                     if not self._thisday:
                         self._thisday = d['date']
-                        print(f"++ Set date as '{self._thisday}' {msg.msgID} line:{n:6}")
+                        # print(f"++ Set date as '{self._thisday}' {msg.msgID} line:{n:6}")
                     else:
                         if self._thisday == d['date']:
                             pass # ignore, same day
                         else:
                             self._thisday = d['date']
-                            print(f"++ New date as '{self._thisday}' {msg.msgID} line:{n:6}")
+                            print(f"++ New date as '{self._thisday}' {msg.msgID} line:{n:6} in {self._infile.name}")
                         
                     
                 
@@ -118,21 +119,11 @@ class NMEATracker:
                     if not self._thisday:
                         # skip nmea lines until we get the date
                         # we could use the filename, if that has been set to have the date.. nah.
-                        print(f".. skipping, no date.. {tim}")
+                        print(f".. Skipping, no date.. {tim}. This should NOT happen.")
                         continue
                     dat = datetime.combine(self._thisday, msg.time, timezone.utc)
                     datstr = dat.isoformat() + "Z"
-                    # dat = (
-                        # dat.replace(
-                            # year=dat.year,
-                            # month=dat.month,
-                            # day=dat.day,
-                            # hour=tim.hour,
-                            # minute=tim.minute,
-                            # second=tim.second,
-                        # ).isoformat()
-                        # + "Z"
-                    # )
+
                     if msg.quality == 1:
                         fix = "3d"
                     elif msg.quality == 2:
@@ -154,18 +145,15 @@ class NMEATracker:
 
         self.write_gpx_tlr()
 
-        print(f"\n{i} GGA message{'' if i == 1 else 's'} read from {self._filename}")
-        print(f"{i} trackpoint{'' if i == 1 else 's'} written to {self._trkfname}")
+        print(f"{i:6d} GGA message{'' if i == 1 else 's'} -> trackpoints from {self._filename.name} to {self._trkfname.name}")
 
     def write_gpx_hdr(self):
         """
         Open gpx file and write GPX track header tags
         """
-
         timestamp = strftime("%Y-%m-%d_%H%M%S")
-        #self._trkfname = os.path.join(self._outdir, f"gpxtrack-{timestamp}.gpx")
         self._trkfname = Path(self._outdir) / (Path(self._filename).stem + ".gpx")
-        print(f"Writing to '{self._trkfname}'")
+        # print(f"Writing to '{self._trkfname}'")
         self._trkfile = open(self._trkfname, "w", encoding="utf-8")
 
         date = datetime.now().isoformat() + "EEST" # this is INCORRECT ! We should use UTC timezone. FIX THIS to'Z'
@@ -227,31 +215,48 @@ class NMEATracker:
         self._trkfile.close()
 
 
-def main(infile):
+def main(indir, insuffix):
     """
     Main routine.
     """
+    indir = Path(indir)
+    if not indir.is_dir():
+        print(f"Directory does not exist: '{INDIR}")
+        sys.exit(1)    
 
-    inpath = Path(infile)
-    outdir = inpath.parent
-    print("NMEA datalog to GPX file converter")
-    tkr = NMEATracker(inpath, outdir)
-    print(f"Processing file {inpath}")
-    tkr.open()
-    tkr.reader()
-    tkr.close()
-    print("Operation Complete")
+    outdir = indir
+    print(f"NMEA datalog to GPX file converter ('{insuffix}' files in {indir})")
+    
+    filepaths = sorted(indir.iterdir(), key=lambda p: p.name.lower())
+    
+    infiles = []
+    for filepath in filepaths:
+        if filepath.suffix == insuffix:
+            infiles.append(filepath)
+    print(f"{len(infiles)} files to convert to GPX")
+            
+    for i in infiles:
+        #print(f" in", i.name)
+        inpath = indir / i
+        tkr = NMEATracker(inpath, outdir)
+        tkr.open()
+        tkr.reader()
+        tkr.close()
+    
+    print("Finished all files")
 
 
 if __name__ == "__main__":
 
-    INFILE = "/home/philip/gps/nmea_data/2024-05/2024-05-22.day"
+    INDIR = "/home/philip/gps/nmea_data/2024-05/"
+    INSUFFIX = ".day"
     
-    if len(sys.argv) == 2:
-        INFILE = sys.argv[1]
-   
-    if len(sys.argv) >2:
-        print(f"Either with no parameters or with nmea filename, e.g.\n$ python nmeagpx.py /home/philip/gps/nmea_data/2024-05/XYZ.nmea", flush=True)
-        sys.exit(1)    
+    if len(sys.argv) == 3:
+        INDIR = sys.argv[1]
+        INSUFFIX = sys.argv[2]
 
-    main(INFILE)
+
+    if len(sys.argv) >3:
+        print(f"Either with no parameters or with nmea directory and suffix e.g.\n$ python nmeagpx.py /home/philip/gps/nmea_data/2024-05/ .day", flush=True)
+
+    main(INDIR, INSUFFIX)
