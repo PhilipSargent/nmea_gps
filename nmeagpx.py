@@ -36,7 +36,8 @@ from pynmeagps.nmeahelpers import planar, haversine
 M_PER_NM = 1852 # 1929 First International Extraordinary Hydrographic Conference in Monaco 
 
 JIGGLE = 3.4/2 # anything within 3m is considered the "same" point. This is the half-width of the boat
-STACK_MINUTES = 60 # how long we wait before flushing the stack
+STACK_MINUTES = 90 # how long we wait before flushing the stack
+MAXSTACK = 300
 
 XML_HDR = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 
@@ -50,6 +51,8 @@ GPX_NS = " ".join(
     )
 )
 GITHUB_LINK = "https://github.com/semuconsulting/pynmeagps"
+
+stack_max = 0
 
 def strim(nmealat):
     """Strims off the ..667 or ..333 at the end of the string
@@ -99,10 +102,12 @@ class Stack:
 
     def it_fits(self, msg_item):
         """There are many changes which mean that we should use the stack, write out the median, 
-        and fluish"""
+        and flush"""
         msg, dat = msg_item
 
         if self.is_full():
+            last_item, last_dat = self._items[-1]
+            # print(f"STACK FULL Spread in stack:{last_dat - self._first}") # have seen 901
             return False
         if self.is_empty():
             self.push(msg_item)
@@ -115,7 +120,8 @@ class Stack:
             
         duration = dat - self._first
         if duration > timedelta(minutes=STACK_MINUTES):
-            print(f"DAT {dat - self._first} h:m:s")
+            last_item, last_dat = self._items[-1]
+            print(f"Gap:{dat - last_dat} h:m:s  Spread in stack:{last_dat - self._first} ")
             return False
         
         # distance from centroid
@@ -129,6 +135,9 @@ class Stack:
         return True
 
     def flush(self):
+        global stack_max
+        if len(self._items) > stack_max:
+            stack_max =len(self._items)
         self._items = []
         self._first = None
         self._box = BoundingBox()
@@ -157,7 +166,7 @@ class Stack:
         quality = first.quality # use first one, they are all the same anyway
         lat = float(f"{lat/num:.6f}")
         lon = float(f"{lon/num:.6f}")
-        alt = float(f"{alt/num:.2f}")  # we have no basis for weighting altitudes, but they are garbage anyway
+        alt = float(f"{alt/num:.1f}")  # we have no basis for weighting altitudes, but they are garbage anyway
         return lat, lon, alt, dat, quality, hdop
 
 class BoundingBox:
@@ -214,7 +223,7 @@ class NMEATracker:
         self._nmeareader = None
         self._connected = False
         self._thisday = None
-        self._gpsstack = Stack(500)
+        self._gpsstack = Stack(MAXSTACK)
 
     def open(self):
         """
@@ -289,7 +298,8 @@ class NMEATracker:
                         self._gpsstack.flush()
                         self._gpsstack.push(msg_item)
                       
-                        datstr = dat.isoformat() + "Z"
+                        datstr = dat.isoformat(sep="T",timespec='auto')
+                        datstr = dat.strftime('%Y-%m-%dT%H:%M:%S') # no TZ as it must always be UTC
                         if quality == 1:
                             fix = "3d"
                         elif msg.quality == 2:
@@ -330,7 +340,7 @@ class NMEATracker:
             f"<metadata>"
             f'<link href="{GITHUB_LINK}"><text>pynmeagps</text></link><time>{date}</time>'
             "</metadata>\n"
-            f"<trk><name>GPX track from NMEA log {self._filename}</name>\n <trkseg>"
+            f"<trk><name>GPX track from NMEA log {self._filename}</name>\n <trkseg>\n"
         )
 
         self._trkfile.write(gpxtrack)
@@ -387,6 +397,8 @@ def main(indir, insuffix):
     """
     Main routine.
     """
+    global stack_max
+
     indir = Path(indir)
     if not indir.is_dir():
         print(f"Directory does not exist: '{INDIR}")
@@ -420,7 +432,7 @@ def main(indir, insuffix):
     for t in trips:
         name, diam = t
         print(f"{name} ~{diam/M_PER_NM:6.2f} NM")
-    print("Finished all files")
+    print(f"Finished all files, max stack used: {stack_max}")
 
 
 if __name__ == "__main__":
