@@ -2,6 +2,8 @@
 Simple CLI utility which creates a GPX track file
 from a binary NMEA dump. Dump must contain NMEA GGA messages and an initial RMG messsage to get the date.
 
+NOTE: input file has to be CRLF line terminated as that is the NMEA standard.
+
 EDITED by Philip Sargent to read date from GPRMC not just assume it is today.
 renamed as nmeagpx.py
 but also see all these : https://duckduckgo.com/?q=nmea2gpx&atb=v316-1&ia=web
