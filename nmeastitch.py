@@ -27,7 +27,8 @@ def concatenate_sorted_files(directory_path, stitched_path):
         
     # Get nmea filepaths (Path objects) sorted by lowercase name. We have made these in datetime UTC order.
     filepaths = sorted(directory_path.iterdir(), key=lambda p: p.name.lower())
-    filepaths.remove(stitched_path)
+    if stitched_path in filepaths:
+        filepaths.remove(stitched_path)
     for filepath in filepaths:
         if not filepath.is_file():
             print(f"Not a file: {filepath} \nSomething serious went wrong.")
