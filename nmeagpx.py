@@ -23,7 +23,7 @@ Created on 7 Mar 2021
 
 # pylint: disable=consider-using-with
 
-import os
+import os, sys
 from datetime import datetime, date, timezone
 from pathlib import Path
 from sys import argv
@@ -227,16 +227,16 @@ class NMEATracker:
         self._trkfile.close()
 
 
-def main(**kwargs):
+def main(infile):
     """
     Main routine.
     """
 
-    infile = Path(kwargs.get("infile", "pygpsdata.nmea"))
-    outdir = Path(kwargs.get("outdir", "."))
+    inpath = Path(infile)
+    outdir = inpath.parent
     print("NMEA datalog to GPX file converter")
-    tkr = NMEATracker(infile, outdir)
-    print(f"Processing file {infile}")
+    tkr = NMEATracker(inpath, outdir)
+    print(f"Processing file {inpath}")
     tkr.open()
     tkr.reader()
     tkr.close()
@@ -245,4 +245,13 @@ def main(**kwargs):
 
 if __name__ == "__main__":
 
-    main(**dict(arg.split("=") for arg in argv[1:]))
+    INFILE = "/home/philip/gps/nmea_data/2024-05/2024-05-22.day"
+    
+    if len(sys.argv) == 2:
+        INFILE = sys.argv[1]
+   
+    if len(sys.argv) >2:
+        print(f"Either with no parameters or with nmea filename, e.g.\n$ python nmeagpx.py /home/philip/gps/nmea_data/2024-05/XYZ.nmea", flush=True)
+        sys.exit(1)    
+
+    main(INFILE)
