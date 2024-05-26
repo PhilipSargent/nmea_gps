@@ -35,6 +35,7 @@ from datetime import datetime, date
 from zoneinfo import ZoneInfo
 
 from pynmeagps.nmeareader import NMEAReader
+
 from pynmeagps.nmeatypes_core import (
     ERR_LOG,
     ERR_RAISE,

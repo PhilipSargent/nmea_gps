@@ -31,6 +31,9 @@ from time import strftime
 
 import pynmeagps.exceptions as nme
 from pynmeagps.nmeareader import NMEAReader
+from pynmeagps.nmeahelpers import planar, haversine
+
+NM_PER_KM = 0.5399568
 
 XML_HDR = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 
@@ -57,6 +60,42 @@ def strim(nmealat):
     if st[10:] == "667":
         st = st[:10] + "7"
     return float(st)
+    
+class BoundingBox:
+    def __init__(self):
+        """ Constructor.  """
+        self._minlat = 90
+        self._maxlat = -90
+        self._minlon = 180
+        self._maxlon = 0
+
+    def update(self, lat, lon):
+        if lat > self._maxlat:
+            self._maxlat = lat
+        if lat < self._minlat:
+            self._minlat = lat
+
+        if lon > self._maxlon:
+            self._maxlon = lon
+        if lon < self._minlon:
+            self._minlon = lon
+    
+    def report(self):
+        return self._minlat, self._maxlat, self._minlon, self._maxlon
+        
+    def size(self):
+        return self._maxlat - self._minlat, self._maxlon - self._minlon
+
+    def centroid(self):
+        return (self._maxlat + self._minlat)/2, (self._maxlon + self._minlon)/2
+        
+    def diagonal_R(self):
+        return planar(self._minlat, self._minlon, self._maxlat, self._maxlon)
+    def diagonal_L(self):
+        return planar(self._minlat, self._maxlon, self._maxlat, self._minlon)
+        
+    def diameter(self):
+        return (self.diagonal_R() + self.diagonal_L())/2
 
 class NMEATracker:
     """
@@ -103,6 +142,8 @@ class NMEATracker:
         Reads and parses UBX message data from stream
         using UBXReader iterator method
         """
+        bb = BoundingBox()
+
         i = 0
         n = 0
         self._nmeareader = NMEAReader(self._infile, validate=validate)
@@ -142,6 +183,8 @@ class NMEATracker:
                         fix = "2d"
                     else:
                         fix = "none"
+                        
+                    bb.update(msg.lat, msg.lon)
                     self.write_gpx_trkpnt(
                         strim(msg.lat),
                         strim(msg.lon),
@@ -158,6 +201,7 @@ class NMEATracker:
         self.write_gpx_tlr()
 
         print(f"{i:6d} GGA message{'' if i == 1 else 's'} -> trackpoints from {self._filename.name} to {self._trkfname.name}")
+        return bb
 
     def write_gpx_hdr(self):
         """
@@ -241,6 +285,7 @@ def main(indir, insuffix):
     
     filepaths = sorted(indir.iterdir(), key=lambda p: p.name.lower())
     
+    trips = []
     infiles = []
     for filepath in filepaths:
         if filepath.suffix == insuffix:
@@ -252,9 +297,15 @@ def main(indir, insuffix):
         inpath = indir / i
         tkr = NMEATracker(inpath, outdir)
         tkr.open()
-        tkr.reader()
+        bound_box = tkr.reader()
         tkr.close()
-    
+        
+        print(f"Box diameter: {bound_box.diameter():.1f} m", bound_box.report())
+        if bound_box.diameter() > 100: # 100 metres
+            trips.append((i.name, bound_box.diameter()))
+    for t in trips:
+        name, diam = t
+        print(f"{name} ~ {(diam/1000)*NM_PER_KM:.2f} miles(naut.)")
     print("Finished all files")
 
 
