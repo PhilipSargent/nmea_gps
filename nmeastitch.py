@@ -21,28 +21,39 @@ def concatenate_sorted_files(directory_path, stitched_path):
       directory_path: The path to the directory containing the files (as a pathlib.Path object).
       sf: The filehandle to the target
     """
-
-    # Get filepaths sorted by lowercase name. We have made these in datetime UTC order.
+        
+    # Get nmea filepaths sorted by lowercase name. We have made these in datetime UTC order.
     filepaths = sorted(directory_path.iterdir(), key=lambda p: p.name.lower())
+    filepaths.remove(stitched_path)
+    for filepath in filepaths:
+        if not filepath.is_file():
+            print(f"Not a file: {filepath} \nSomething serious went wrong.")
+            sys.exit(1)
+        if filepath.suffix != ".nmea":
+            filepaths.remove(filepath)
 
     print(f"{len(filepaths)} Concatenated files in {directory_path} (dictionary order):")
-    daynames = {}
     with stitched_path.open('wb', buffering=BUFSIZE) as sf: #
         for filepath in filepaths:
-            if filepath.name == STITCH:
-                print("[Do not try to recopy the target file!]")
-                continue
-            if not filepath.is_file():
-                print(f"Not a file: {filepath} \nSomething serious went wrong.")
-                sys.exit(1)
-            else:
-                with filepath.open('rb', buffering=BUFSIZE) as ifile:
-                    print(filepath.name)
-                    shutil.copyfileobj(ifile, sf)
-                # Now do the day files
-                dayname = filepath.name[:10]
-                daynames[dayname] = True
+            with filepath.open('rb', buffering=BUFSIZE) as ifile:
+                print(filepath.name)
+                shutil.copyfileobj(ifile, sf)
+              
+    daynames = {}
+    for filepath in filepaths:
+        if filepath.name[:2] == "20" and len(filepath.stem) == 15:
+            dayname = filepath.name[:10]
+            
+            daypath = directory_path / (dayname + ".day")
+            if daypath.is_file():
+                daypath.unlink() # deletes pre-existing dayfiles
+            daynames[dayname] = True
     print(daynames)
+    
+    # with daypath.open('ab', buffering=BUFSIZE) as ifile: # APPEND mode
+        # hutil.copyfileobj(ifile, sf)
+
+
                 
 if __name__ == "__main__":
     DIR = "/home/philip/gps/nmea_data/2024-05/"
