@@ -45,6 +45,18 @@ GPX_NS = " ".join(
 )
 GITHUB_LINK = "https://github.com/semuconsulting/pynmeagps"
 
+def strim(nmealat):
+    """Strims off the ..667 or ..333 at the end of the string
+    we do not need this pointless precision"""
+    st = str(nmealat)
+    if len(st) < 13:
+        return nmealat
+    
+    if st[10:] == "333":
+        st = st[:11]
+    if st[10:] == "667":
+        st = st[:10] + "7"
+    return float(st)
 
 class NMEATracker:
     """
@@ -131,8 +143,8 @@ class NMEATracker:
                     else:
                         fix = "none"
                     self.write_gpx_trkpnt(
-                        msg.lat,
-                        msg.lon,
+                        strim(msg.lat),
+                        strim(msg.lon),
                         ele=msg.alt,
                         time=datstr,
                         fix=fix,
@@ -201,7 +213,7 @@ class NMEATracker:
                 val = kwargs[tag]
                 trkpnt += f"<{tag}>{val}</{tag}>"
 
-        trkpnt += "  </trkpt>\n"
+        trkpnt += "</trkpt>\n"
 
         self._trkfile.write(trkpnt)
 
