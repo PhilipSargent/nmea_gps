@@ -23,7 +23,8 @@ https://github.com/semuconsulting/pynmeagps
 # pylint: disable=consider-using-with
 
 import os, sys
-from datetime import datetime, date, timezone
+#import math
+from datetime import datetime, date, timezone, timedelta
 from pathlib import Path
 from sys import argv
 from time import strftime
@@ -34,12 +35,15 @@ from pynmeagps.nmeahelpers import planar, haversine
 
 M_PER_NM = 1852 # 1929 First International Extraordinary Hydrographic Conference in Monaco 
 
+JIGGLE = 3.4/2 # anything within 3m is considered the "same" point. This is the half-width of the boat
+STACK_MINUTES = 60 # how long we wait before flushing the stack
+
 XML_HDR = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 
 GPX_NS = " ".join(
     (
         'xmlns="http://www.topografix.com/GPX/1/1"',
-        'creator="pynmeagps" version="1.1"',
+        'creator="nmeagpx+pynmeagps" version="1.1"',
         'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
         'xsi:schemaLocation="http://www.topografix.com/GPX/1/1',
         'http://www.topografix.com/GPX/1/1/gpx.xsd"',
@@ -59,7 +63,103 @@ def strim(nmealat):
     if st[10:] == "667":
         st = st[:10] + "7"
     return float(st)
+
+class Stack:
+    """
+    A simple stack implementation with a maximum size.
+    We are using it to store NMEA sentences
     
+    We want to empty th estack if the next reading is 
+    - out of range of the bounding box
+    - a long time after the box started, we want at least one readiong an hour.
+    
+    We also have to manage the hdop value, ele, time and fix
+    """
+    def __init__(self, max_size):
+        self.max_size = max_size
+        self._items = []
+        self._box = BoundingBox()
+        self._first = None
+
+    def is_empty(self):
+        return len(self._items) == 0
+
+    def is_full(self):
+        return len(self._items) == self.max_size
+
+    def push(self, msg_item):
+        msg, dat = msg_item
+        if self.is_full():
+            print("Stack Overflow! Cannot add item.", flush=True)
+        else:
+            if not self._first:
+               self._first = dat
+            self._box.update(msg.lat, msg.lon)
+            self._items.append(msg_item)
+
+    def it_fits(self, msg_item):
+        """There are many changes which mean that we should use the stack, write out the median, 
+        and fluish"""
+        msg, dat = msg_item
+
+        if self.is_full():
+            return False
+        if self.is_empty():
+            self.push(msg_item)
+            return True
+            
+        first_msg, _ = self._items[0]
+        if msg.quality != first_msg.quality:
+            print("QUALITY FIX change") # never happens!
+            return False
+            
+        duration = dat - self._first
+        if duration > timedelta(minutes=STACK_MINUTES):
+            print(f"DAT {dat - self._first} h:m:s")
+            return False
+        
+        # distance from centroid
+        centroid_lat, centroid_lon  = self._box.centroid()
+        distance = planar(centroid_lat, centroid_lon, msg.lat, msg.lon)
+        if distance > JIGGLE:
+            # print(f"JIGGLED {distance:.2f} m")
+            return False
+        
+        self.push(msg_item)
+        return True
+
+    def flush(self):
+        self._items = []
+        self._first = None
+        self._box = BoundingBox()
+        
+    def centroid(self):
+        return self._box.centroid()
+        
+    def median(self):
+        """Weighting lat & lon by hdop is tricky
+         We could use sum of squares average of hdop, but actually just picking the worst one is realistic"""
+        num = len(self._items)
+        # print("NUMBER", num)
+        lat = 0
+        lon = 0
+        alt = 0
+        hdop = 0
+        for msg_item in self._items:
+            i, dat = msg_item
+            alt += i.alt 
+            # should weight these averages by hdop I guess
+            lat += i.lat
+            lon += i.lon
+            if i.HDOP > hdop:
+                hdop = i.HDOP
+        first, _ = self._items[0]
+        quality = first.quality # use first one, they are all the same anyway
+        lat = float(f"{lat/num:.6f}")
+        lon = float(f"{lon/num:.6f}")
+        alt = float(f"{alt/num:.2f}")  # we have no basis for weighting altitudes, but they are garbage anyway
+        return lat, lon, alt, dat, quality, hdop
+
 class BoundingBox:
     def __init__(self):
         """ Constructor.  """
@@ -114,6 +214,7 @@ class NMEATracker:
         self._nmeareader = None
         self._connected = False
         self._thisday = None
+        self._gpsstack = Stack(500)
 
     def open(self):
         """
@@ -173,25 +274,37 @@ class NMEATracker:
                         print(f".. Skipping, no date.. {tim}. This should NOT happen.")
                         continue
                     dat = datetime.combine(self._thisday, msg.time, timezone.utc)
-                    datstr = dat.isoformat() + "Z"
 
-                    if msg.quality == 1:
-                        fix = "3d"
-                    elif msg.quality == 2:
-                        fix = "2d"
-                    else:
-                        fix = "none"
-                        
-                    bb.update(msg.lat, msg.lon)
-                    
-                    self.write_gpx_trkpnt(
-                        strim(msg.lat),
-                        strim(msg.lon),
-                        ele=msg.alt,
-                        time=datstr,
-                        fix=fix,
-                        hdop=msg.HDOP,
-                    )
+                       
+                    lat = strim(msg.lat)
+                    lon = strim(msg.lon)
+                    bb.update(lat, lon) # for the whole file, not just the stack
+
+                    # don't write immediately, push to stack and write simplified
+                    msg_item = (msg, dat)
+                    if not self._gpsstack.it_fits(msg_item):
+                        # write out whole stack, simplified
+                        # then re-push item onto a new stack.
+                        lat, lon, alt, dat, quality, hdop = self._gpsstack.median()
+                        self._gpsstack.flush()
+                        self._gpsstack.push(msg_item)
+                      
+                        datstr = dat.isoformat() + "Z"
+                        if quality == 1:
+                            fix = "3d"
+                        elif msg.quality == 2:
+                            fix = "2d"
+                        else:
+                            fix = "none"
+                         
+                        self.write_gpx_trkpnt(
+                            lat,
+                            lon,
+                            ele=alt,
+                            time=datstr,
+                            fix=fix,
+                            hdop=hdop,
+                        )
                     i += 1
             except (nme.NMEAMessageError, nme.NMEATypeError, nme.NMEAParseError) as err:
                 print(f"Something went wrong {err}")
@@ -302,6 +415,8 @@ def main(indir, insuffix):
         # print(f"Box diameter: {bound_box.diameter():.1f} m", bound_box.report())
         if bound_box.diameter() > 100: # 100 metres
             trips.append((i.name, bound_box.diameter()))
+            
+        
     for t in trips:
         name, diam = t
         print(f"{name} ~{diam/M_PER_NM:6.2f} NM")
