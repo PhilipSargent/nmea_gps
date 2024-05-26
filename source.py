@@ -13,6 +13,7 @@ import errno
 
 RECONNECT_DELAY = 5 # seconds
 LINE_DELAY = 0.333
+ALLOWED_CONNECTIONS = 5
 
 nmea_data = """$GPGGA,213340.649,3729.856,N,02327.091,E,1,12,1.0,0.0,M,0.0,M,,*6A
 $GPGSA,A,3,01,02,03,04,05,06,07,08,09,10,11,12,1.0,1.0,1.0*30
@@ -80,6 +81,13 @@ def endless_lines_generator(long_string):
     """
     This generator continuously produces lines from the given string,
     returning to the beginning when all lines are yielded.
+    
+    Note that the strings encode a time and date, and this will repeat,
+    so this is not a good mimic of an nmea generator. We should really
+    insert actual UTC time/date and encode it.
+    
+    Also it is not producing ~5 nmea sentences a second in the way a real
+    nmea source would.
 
     Args:
     long_string: The long string containing lines.
@@ -154,7 +162,7 @@ def main2():
     server.bind((host, PORT))
 
     # Listen for incoming connections
-    server.listen(5) # 5 allowable unaccepted connectins waiting
+    server.listen(ALLOWED_CONNECTIONS) # 5 allowable unaccepted connections waiting
     print(f"Server listening on {host}:{PORT}")
 
     while True:

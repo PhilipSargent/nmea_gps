@@ -218,9 +218,8 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                 #pass
                 
             # We need RMC for the date. Others only give time. 
-            # Since this function restarts each parse error, it resets the date each time.
-            # This is a bit over-protective.
-            if 'date' in d:
+            # Sometimes the RMC sentence is corrupted, but still has valid checksum, so date is invalid.
+            if 'date' in d and d['date'] != "":
                 if 'thisday' not in locals(): # first date seen
                     thisday = d['date']
                     lastday = thisday

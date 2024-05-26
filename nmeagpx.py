@@ -65,10 +65,16 @@ class NMEATracker:
 
     def open(self):
         """
-        Open datalog file.
-        """
-        self._infile = open(self._filename, "rb")
-        self._connected = True
+         Open datalog file."""
+        if not self._filename.is_file():
+            print("NOT A FILE")
+        else:
+            print(f"opening {self._filename}")
+        try:
+            self._infile = open(self._filename, "rb")
+            self._connected = True
+        except:
+            raise 
 
     def close(self):
         """
@@ -87,12 +93,12 @@ class NMEATracker:
         self._nmeareader = NMEAReader(self._infile, validate=validate)
 
         self.write_gpx_hdr()
-
+        print(self._nmeareader, self._infile)
         for _, msg in self._nmeareader:  # invokes iterator method
             n += 1
             try:
                 d = msg.__dict__
-                if 'date' in d: # only RMC, but get it anywhere if it exists
+                if 'date' in d and d['date'] != "": # only RMC, but get it anywhere if it exists
                     if not self._thisday:
                         self._thisday = d['date']
                         print(f"++ Set date as '{self._thisday}' {msg.msgID} line:{n:6}")
@@ -101,7 +107,7 @@ class NMEATracker:
                             pass # ignore, same day
                         else:
                             self._thisday = d['date']
-                            print(f"++ Reset new date as '{self._thisday}' {msg.msgID} line:{n:6}")
+                            print(f"++ New date as '{self._thisday}' {msg.msgID} line:{n:6}")
                         
                     
                 
@@ -157,16 +163,16 @@ class NMEATracker:
         timestamp = strftime("%Y-%m-%d_%H%M%S")
         #self._trkfname = os.path.join(self._outdir, f"gpxtrack-{timestamp}.gpx")
         self._trkfname = Path(self._outdir) / (Path(self._filename).stem + ".gpx")
-        print(self._trkfname)
+        print(f"Writing to '{self._trkfname}'")
         self._trkfile = open(self._trkfname, "w", encoding="utf-8")
 
-        date = datetime.now().isoformat() + "Z"
+        date = datetime.now().isoformat() + "EEST" # this is INCORRECT ! We should use UTC timezone. FIX THIS to'Z'
         gpxtrack = (
             XML_HDR + "<gpx " + GPX_NS + ">"
             f"<metadata>"
             f'<link href="{GITHUB_LINK}"><text>pynmeagps</text></link><time>{date}</time>'
             "</metadata>\n"
-            "<trk><name>GPX track from NMEA datalog</name>\n <trkseg>"
+            f"<trk><name>GPX track from NMEA log {self._filename}</name>\n <trkseg>"
         )
 
         self._trkfile.write(gpxtrack)
@@ -224,15 +230,15 @@ def main(**kwargs):
     Main routine.
     """
 
-    infile = kwargs.get("infile", "pygpsdata.nmea")
-    outdir = kwargs.get("outdir", ".")
+    infile = Path(kwargs.get("infile", "pygpsdata.nmea"))
+    outdir = Path(kwargs.get("outdir", "."))
     print("NMEA datalog to GPX file converter")
     tkr = NMEATracker(infile, outdir)
-    print(f"\nProcessing file {infile}...")
+    print(f"Processing file {infile}")
     tkr.open()
     tkr.reader()
     tkr.close()
-    print("\nOperation Complete")
+    print("Operation Complete")
 
 
 if __name__ == "__main__":
