@@ -16,6 +16,7 @@ it did not load extroot and so nothing was running. Thsi can only be detected by
 running on another machine, i.e. the server to which regular uploads are made by copynmea.sh
 
 Derived from nmeasocket.py
+https://github.com/semuconsulting/pynmeagps
     A simple example implementation of a GNSS socket reader
     using the pynmeagps.NMEAReader iterator functions.
     Created on 05 May 2022

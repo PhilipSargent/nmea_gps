@@ -5,6 +5,9 @@ Note that 'day' means in EEST timezone
 as it works from the filenames, it is not a UTC 'day'.
 
 Rewritten from a skeleton created by Gemini.
+
+Uses
+https://github.com/semuconsulting/pynmeagps
 """
 
 import sys

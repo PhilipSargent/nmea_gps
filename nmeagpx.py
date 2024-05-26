@@ -8,8 +8,8 @@ EDITED by Philip Sargent to read date from GPRMC not just assume it is today.
 renamed as nmeagpx.py
 but also see all these : https://duckduckgo.com/?q=nmea2gpx&atb=v316-1&ia=web
 
-Usage:
-python nmeagpx.py infile="2024-05-09_0300.nmea" outdir="."
+
+https://github.com/semuconsulting/pynmeagps
 
 Usage originally:
 python3 gpxtracker.py infile="pygpsdata.log" outdir="."
