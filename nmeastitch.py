@@ -39,7 +39,7 @@ def concatenate_sorted_files(directory_path, stitched_path):
                 print(filepath.name)
                 shutil.copyfileobj(ifile, sf)
               
-    daynames = {}
+    daypaths = {}
     for filepath in filepaths:
         if filepath.name[:2] == "20" and len(filepath.stem) == 15:
             dayname = filepath.name[:10]
@@ -47,11 +47,15 @@ def concatenate_sorted_files(directory_path, stitched_path):
             daypath = directory_path / (dayname + ".day")
             if daypath.is_file():
                 daypath.unlink() # deletes pre-existing dayfiles
-            daynames[dayname] = True
-    print(daynames)
+            daypaths[dayname] = daypath
+    print(daypaths)
     
-    # with daypath.open('ab', buffering=BUFSIZE) as ifile: # APPEND mode
-        # hutil.copyfileobj(ifile, sf)
+    for filepath in filepaths:
+        dn = filepath.name[:10]
+        if dn in daypaths:
+            with daypaths[dn].open('ab', buffering=BUFSIZE) as afile: # APPEND mode
+                with filepath.open('rb', buffering=BUFSIZE) as ifile:
+                    shutil.copyfileobj(ifile, afile)
 
 
                 
