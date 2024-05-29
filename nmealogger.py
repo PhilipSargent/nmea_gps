@@ -45,6 +45,8 @@ from pynmeagps.nmeatypes_core import (
     VALMSGID,
 )
 global msgcount, msggood, msgparse, msgqk
+msg_by_id = {}
+
 totcount = 0
 totgood = 0
 totparse = 0
@@ -144,7 +146,7 @@ RUNNING_STACK = 6
 data_stack = Stack(RUNNING_STACK)
 
 def print_summary(msg=None):
-    global totcount, totgood, totparse, totqk,  start
+    global totcount, totgood, totparse, totqk,  start, msg_by_id
     
     totcount = msgcount
     totgood = msggood
@@ -164,6 +166,8 @@ def print_summary(msg=None):
     f"\n   {totparse:,d} parse errors",
     flush=True,
     )
+    for id in msg_by_id:
+        print(f"   {id}  {msg_by_id[id]} parse errors",flush=True)
 
 def strim(nmealat):
     """Strims off the ..667 or ..333 at the end of the string
@@ -182,7 +186,7 @@ def strim(nmealat):
 def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     """Runs indefinitely unless there is a parse error or interrupt when it produces an exception
     """
-    global msgcount, msggood, msgparse, msgqk, data_stack
+    global msgcount, msggood, msgparse, msgqk, data_stack, msg_by_id
     
     poor_data = Bad_stash()
     got_data_at = tm.time()
@@ -301,16 +305,20 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                         lat = 0
                         lon = 0
 
-            if msgcount in [0, 10, 500, 1000, 10000]: 
+            if msgcount in [0, 500, 1000, 10000]: 
                 print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}", flush=True)
             msgcount += 1            
             if msgcount % 100000 == 0: 
                 print_summary(msg="")
                 
     except nme.NMEAParseError as e:
+        
         # print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} Parse EXCEPTION in parsestream\n {e}", flush=True)
-        # if 'raw' in locals():
+        # if 'raw' in locals(): # this is probably not the correct one for this error!
             # print(f"raw:{raw}", flush=True)
+        if parsed_data.msgID not in msg_by_id:
+            msg_by_id[parsed_data.msgID] = 0
+        msg_by_id[parsed_data.msgID] += 1
         msgparse += 1
         # clears exception so calling routine just continues its while True loop
 
@@ -359,13 +367,10 @@ def readstream(stream: socket.socket):
                     while True:
                         try:
                             parsestream(nmr, af, archivefilename, rawf, rawfilename)
-                        # except nme.NMEAParseError as e:
-                            # print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} Parse EXCEPTION\n {e}", flush=True)
-                            # msgparse += 1
-                            # continue
-                        except Exception as e: 
-                            print_summary(f"generic EXCEPTION in parsestream()\n {e}")
-                            raise e
+                        except nme.NMEAParseError as e:
+                            print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} ParseError EXCEPTION caught OUTSIDE parsestream\n {e}", flush=True)
+                            msgparse += 1
+                            continue
         except NewDay:
             # this is bad style. Really a GOTO statement.
             print_summary("-- Next Day - restart logfiles")
