@@ -308,9 +308,9 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                 print_summary(msg="")
                 
     except nme.NMEAParseError as e:
-        print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} Parse EXCEPTION in parsestream\n {e}", flush=True)
-        if 'raw' in locals():
-            print(f"raw:{raw}", flush=True)
+        # print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} Parse EXCEPTION in parsestream\n {e}", flush=True)
+        # if 'raw' in locals():
+            # print(f"raw:{raw}", flush=True)
         msgparse += 1
         # clears exception so calling routine just continues its while True loop
 
