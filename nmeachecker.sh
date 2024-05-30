@@ -3,7 +3,7 @@
 # Written with the rather erratic help of Gemini
 
 # Define threshold (in minutes)
-threshold=1
+threshold=13
 
 # define directory, on Guava router, to check for updates.
 directory=/root/nmea_data/2024-05
