@@ -29,7 +29,6 @@ for filename in $(ls -1 "$directory"); do
 
     # Compare with threshold time
     if [ $file_mtime -gt $threshold_time ]; then
-      echo "File '$filepath' has been updated in the last $threshold minutes."
       found_updated=1
       updated=$filename
     fi
@@ -39,10 +38,11 @@ done
 # Handle results
 if [ $found_updated -ne 1 ]; then
   echo "No files in '$directory' have been updated in the last $threshold minutes."
-  # so kill the .sh script which kills the python program,
+  # so kill the .py process, wich terminates the .sh script
   # cron will then restart it in 3 minutes
   touch /root/nmea_data/nmealogger-hung.txt
-  pkill -e [n]mealogger
+  echo `date` "Hung" >> /root/nmea_data/nmealogger_error.txt
+  pkill -ef "python /root/nmea_gps/nmealogger.py"
   exit 1
 else
   echo "$filename updated recently"
