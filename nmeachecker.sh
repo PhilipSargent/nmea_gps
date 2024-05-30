@@ -44,8 +44,8 @@ if [ $found_updated -ne 1 ]; then
   echo `date` "Hung" >> /root/nmea_data/nmealogger_error.txt
   pkill -ef "python /root/nmea_gps/nmealogger.py"
   exit 1
-else
-  echo "$filename updated recently"
+# else
+  # echo `date` "$filename updated recently"
 fi
 
 exit 0
