@@ -24,10 +24,6 @@ for filename in $(ls -1 "$directory"); do
   # Check if it's a regular file (skip directories, etc.)
   if [ -f "$filepath" ]; then
     # Get the file modification time
-    
-    # stat requires coreutils
-    # file_mtime=$(stat -c %Y "$filepath")
-    ls -l "$filepath"
     file_mtime=$(date -r "$filepath" +%s)
 
     # Compare with threshold time
