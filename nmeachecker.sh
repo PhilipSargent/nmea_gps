@@ -27,7 +27,8 @@ for filename in $(ls -1 "$directory"); do
     
     # stat requires coreutils
     # file_mtime=$(stat -c %Y "$filepath")
-    file_mtime=$(ls -l "$filepath" | awk '{print $8}')
+    ls -l "$filepath"
+    file_mtime=$(date -r "$filepath" +%s)
 
     # Compare with threshold time
     if [ $file_mtime -gt $threshold_time ]; then
