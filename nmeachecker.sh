@@ -37,7 +37,7 @@ done
 
 # Handle results
 if [ $found_updated -ne 1 ]; then
-  echo "No files in '$directory' have been updated in the last $threshold minutes."
+  echo `date` "No files in '$directory' have been updated in the last $threshold minutes."
   # so kill the .py process, wich terminates the .sh script
   # cron will then restart it in 3 minutes
   touch /root/nmea_data/nmealogger-hung.txt
