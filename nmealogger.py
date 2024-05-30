@@ -54,6 +54,7 @@ totqk = 0
 
 HDOP_LIMIT = 3
 MAX_WAIT = 10 * 60 # 10 minutes in seconds
+LONG_ENOUGH = 300000 # Max messages before restart logs
 
 
 TZ = ZoneInfo('Europe/Athens')
@@ -61,6 +62,10 @@ TZ = ZoneInfo('Europe/Athens')
 class NewDay(Exception):
     """
     When the UTC day changes, which is about 3am Greek time in Summer
+    """
+class NewLogs(Exception):
+    """
+    Finish logs and start new ones
     """
     
 class Bad_stash:
@@ -193,6 +198,9 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     
     try:
         for (raw, parsed_data) in nmr: # nmr is an infinite iterator
+            if msgcount > LONG_ENOUGH - 1:
+                raise NewLogs
+                
             if not archivefilename.is_file():
                 raise FileNotFoundError( errno.ENOENT, os.strerror(errno.ENOENT), archivefilename)
             if not rawfilename.is_file():
@@ -240,7 +248,8 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                         raise NewDay
                                
             if 'thisday' not in locals(): # ie first time since restart
-                # print("-- No date yet...", flush=True)
+                stamp = datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')
+                print(f"{stamp} -- No date yet...", flush=True)
                 continue # ignore all NMEA until we get a date       
 
             if 'time' in d:
@@ -374,6 +383,10 @@ def readstream(stream: socket.socket):
         except NewDay:
             # this is bad style. Really a GOTO statement.
             print_summary("-- Next Day - restart logfiles")
+            continue
+        except NewLogs:
+            # this is bad style. Really a GOTO statement.
+            print_summary("-- Same day, but restart logfiles")
             continue
 
         except KeyboardInterrupt:
