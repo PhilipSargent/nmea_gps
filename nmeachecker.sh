@@ -1,5 +1,6 @@
 #!/bin/sh 
-# Originally written by Gemini
+# 2024-05-30
+# Written with the rather erratic help of Gemini
 
 # Define threshold (in minutes)
 threshold=1
@@ -30,6 +31,7 @@ for filename in $(ls -1 "$directory"); do
     if [ $file_mtime -gt $threshold_time ]; then
       echo "File '$filepath' has been updated in the last $threshold minutes."
       found_updated=1
+      updated=$filename
     fi
   fi
 done
@@ -37,9 +39,13 @@ done
 # Handle results
 if [ $found_updated -ne 1 ]; then
   echo "No files in '$directory' have been updated in the last $threshold minutes."
+  # so kill the .sh script which kills the python program,
+  # cron will then restart it in 3 minutes
   touch /root/nmea_data/nmealogger-hung.txt
-  ./nmealogger.sh &
+  pkill -e [n]mealogger
   exit 1
+else
+  echo "$filename updated recently"
 fi
 
 exit 0
