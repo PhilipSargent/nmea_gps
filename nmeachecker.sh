@@ -24,7 +24,10 @@ for filename in $(ls -1 "$directory"); do
   # Check if it's a regular file (skip directories, etc.)
   if [ -f "$filepath" ]; then
     # Get the file modification time
-    file_mtime=$(stat -c %Y "$filepath")
+    
+    # stat requires coreutils
+    # file_mtime=$(stat -c %Y "$filepath")
+    file_mtime=$(ls -l "$filepath" | awk '{print $8}')
 
     # Compare with threshold time
     if [ $file_mtime -gt $threshold_time ]; then
