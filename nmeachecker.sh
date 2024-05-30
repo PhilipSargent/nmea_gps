@@ -7,7 +7,7 @@ threshold=13
 
 # define directory, on Guava router, to check for updates.
 directory=/root/nmea_data/2024-05
-directory=../nmea_data/2024-05
+#directory=../nmea_data/2024-05
 
 # Get the current time (in seconds since epoch)
 current_time=$(date +%s)
