@@ -18,7 +18,7 @@ threshold_time=$((current_time - (threshold * 60)))
 # Loop through files in the directory
 found_updated=0  # Flag to track if any updated file is found
 
-dir_root = `ls -pd /root/nmea_data/* | grep "/$"`
+dir_root=`ls -pd /root/nmea_data/* | grep "/$"`
 for directory in $dir_root; do
 echo directory
 done
