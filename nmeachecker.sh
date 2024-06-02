@@ -20,27 +20,26 @@ found_updated=0  # Flag to track if any updated file is found
 
 dir_root=`ls -pd /root/nmea_data/* | grep "/$"`
 for directory in $dir_root; do
-echo $directory
+
+    for filename in $(ls -1 "$directory"); do
+      filepath="$(directory)$filename"
+      echo "$(directory)$filename"
+
+      # Check if it's a regular file (skip directories, etc.)
+      if [ -f "$filepath" ]; then
+        # Get the file modification time
+        file_mtime=$(date -r "$filepath" +%s)
+
+        # Compare with threshold time
+        if [ $file_mtime -gt $threshold_time ]; then
+          found_updated=1
+          updated=$filename
+        fi
+      fi
+    done
+
 done
 exit
-
-for filename in $(ls -1 "$directory"); do
-  filepath="$(directory)$filename"
-  echo "$(directory)$filename"
-
-  # Check if it's a regular file (skip directories, etc.)
-  if [ -f "$filepath" ]; then
-    # Get the file modification time
-    file_mtime=$(date -r "$filepath" +%s)
-
-    # Compare with threshold time
-    if [ $file_mtime -gt $threshold_time ]; then
-      found_updated=1
-      updated=$filename
-    fi
-  fi
-done
-
 
 # Handle results
 if [ $found_updated -ne 1 ]; then
