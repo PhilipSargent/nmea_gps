@@ -20,7 +20,6 @@ found_updated=0  # Flag to track if any updated file is found
 
 dir_root=`ls -pd /root/nmea_data/* | grep "/$"`
 for directory in $dir_root; do
-
     for filename in $(ls -1 "$directory"); do
       filepath="$directory$filename"
       echo "$directory$filename"
@@ -37,9 +36,7 @@ for directory in $dir_root; do
         fi
       fi
     done
-
 done
-exit
 
 # Handle results
 if [ $found_updated -ne 1 ]; then
@@ -50,8 +47,8 @@ if [ $found_updated -ne 1 ]; then
   echo `date` "Hung" >> /root/nmea_data/nmealogger_error.txt
   pkill -ef "python /root/nmea_gps/nmealogger.py"
   exit 1
-# else
-  # echo `date` "$filename updated recently"
+else
+  echo `date` "$filename updated recently"
 fi
 
 exit 0
