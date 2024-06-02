@@ -22,7 +22,7 @@ dir_root=`ls -pd /root/nmea_data/* | grep "/$"`
 for directory in $dir_root; do
     for filename in $(ls -1 "$directory"); do
       filepath="$directory$filename"
-      echo "$directory$filename"
+      # echo "$directory$filename"
 
       # Check if it's a regular file (skip directories, etc.)
       if [ -f "$filepath" ]; then
@@ -47,8 +47,8 @@ if [ $found_updated -ne 1 ]; then
   echo `date` "Hung" >> /root/nmea_data/nmealogger_error.txt
   pkill -ef "python /root/nmea_gps/nmealogger.py"
   exit 1
-else
-  echo `date` "$filename updated recently"
+# else
+  # echo `date` "$filename updated recently"
 fi
 
 exit 0
