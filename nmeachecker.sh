@@ -20,13 +20,13 @@ found_updated=0  # Flag to track if any updated file is found
 
 dir_root=`ls -pd /root/nmea_data/* | grep "/$"`
 for directory in $dir_root; do
-echo directory
+echo $directory
 done
 exit
 
 for filename in $(ls -1 "$directory"); do
-  filepath="$directory/$filename"
-  # echo "$directory/$filename"
+  filepath="$(directory)$filename"
+  echo "$(directory)$filename"
 
   # Check if it's a regular file (skip directories, etc.)
   if [ -f "$filepath" ]; then
