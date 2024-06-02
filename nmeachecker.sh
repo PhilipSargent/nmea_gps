@@ -22,8 +22,8 @@ dir_root=`ls -pd /root/nmea_data/* | grep "/$"`
 for directory in $dir_root; do
 
     for filename in $(ls -1 "$directory"); do
-      filepath="$(directory)$filename"
-      echo "$(directory)$filename"
+      filepath="$directory$filename"
+      echo "$directory$filename"
 
       # Check if it's a regular file (skip directories, etc.)
       if [ -f "$filepath" ]; then
