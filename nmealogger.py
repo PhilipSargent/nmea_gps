@@ -249,7 +249,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                         while not pre_date_stack.is_empty():
                             i_raw, i_hdop = pre_date_stack.first(msg="pre_date items")
                             # but just throw them away
-                            print(">> ",i_raw.decode("utf-8", "strict"))
+                            print(">> ",i_raw.decode("utf-8", "strict"), end="")
                 else:
                     thisday = d['date']   
                     if thisday != lastday: # happens at UTC, i.e. 0300 Europe/Athens timezone.
@@ -265,7 +265,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             if 'thisday' not in locals(): # ie first time since restart
                 stamp = datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')
                 # print(f"{stamp} -- {parsed_data.msgID} No date yet... (utf8):",raw.decode("utf-8", "strict")[:-2], flush=True)
-                if 'HDOP' in d:
+                if 'lat' in d and 'lon' in d and 'HDOP' in d: # note HDOP does not mean there is a lat/lon, GPGSA gives HDOP too.
                     pre_date_stack.push((raw, float(d['HDOP'])))
                     # print(f"{parsed_data.msgID}  {t} pre_date ADD", flush=True)
                     if pre_date_stack.is_full():
