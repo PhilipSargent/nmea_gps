@@ -169,7 +169,7 @@ def print_summary(msg=None):
     f"\n {totgood:,d} messages with valid lat/lon logged,",
     f"\n   {totgood/secs:.2f} msgs per second",
     f"\n   {totqk:,d} QK corruptions",
-    f"\n   {totparse:,d} parse errors",
+    f"\n   {totparse:,d} parse errors ({totparse/totcount:.2%})",
     flush=True,
     )
     for id in msg_by_id:
