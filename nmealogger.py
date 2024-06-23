@@ -267,7 +267,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                 # print(f"{stamp} -- {parsed_data.msgID} No date yet... (utf8):",raw.decode("utf-8", "strict")[:-2], flush=True)
                 if 'HDOP' in d:
                     pre_date_stack.push((raw, float(d['HDOP'])))
-                    print(f"{parsed_data.msgID}  {t} pre_date ADD", flush=True)
+                    # print(f"{parsed_data.msgID}  {t} pre_date ADD", flush=True)
                     if pre_date_stack.is_full():
                         print(f"{stamp} -- {parsed_data.msgID} pre_date queue full. Flushing..|", flush=True)
                         pre_date_stack.flush()
