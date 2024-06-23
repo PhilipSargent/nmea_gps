@@ -264,7 +264,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                                
             if 'thisday' not in locals(): # ie first time since restart
                 stamp = datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')
-                print(f"{stamp} -- {parsed_data.msgID} No date yet... (utf8):",raw.decode("utf-8", "strict")[:-2], flush=True)
+                # print(f"{stamp} -- {parsed_data.msgID} No date yet... (utf8):",raw.decode("utf-8", "strict")[:-2], flush=True)
                 if 'HDOP' in d:
                     pre_date_stack.push((raw, float(d['HDOP'])))
                     print(f"{parsed_data.msgID}  {t} pre_date ADD", flush=True)
@@ -356,7 +356,7 @@ def readstream(stream: socket.socket):
     """
     Reads and parses NMEA message from socket stream.
     """
-    global totcount, totgood, totparse, totqk, msgcount, msggood, msgparse, msgqk, start
+    global totcount, totgood, totparse, totqk, msgcount, msggood, msgparse, msgqk, start, msg_by_id 
 
     start = datetime.now(tz=TZ) # This is timezone time, not UTC which comes from the GPS signal
     
@@ -403,10 +403,12 @@ def readstream(stream: socket.socket):
         except NewDay:
             # this is bad style. Really a GOTO statement.
             print_summary("-- Next Day - restart logfiles")
+            msg_by_id = {}
             continue
         except NewLogs:
             # this is bad style. Really a GOTO statement.
             print_summary("-- Same day, but restart logfiles")
+            msg_by_id = {}
             continue
 
         except KeyboardInterrupt:
