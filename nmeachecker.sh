@@ -44,7 +44,7 @@ if [ $found_updated -ne 1 ]; then
   # so kill the .py process, wich terminates the .sh script
   # cron will then restart it in 3 minutes
   touch /root/nmea_data/nmealogger-hung.txt
-  echo `date` "Hung" >> /root/nmea_data/nmealogger_error.txt
+  echo `date` "Hung: no update in $threshold minutes." >> /root/nmea_data/nmealogger_error.txt
   pkill -ef "python /root/nmea_gps/nmealogger.py"
   exit 1
 # else
