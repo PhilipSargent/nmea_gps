@@ -126,12 +126,13 @@ class Stack:
         else:
             self.items.append(item)
 
-    # def pop(self):
-        # if self.is_empty():
-            # print("Stack Underflow! Cannot remove item.", flush=True)
-            # return None
-        # else:
-            # return self.items.pop()[0]
+    def first(self, msg=None):
+        if self.is_empty():
+            print("Queue Underflow! Cannot remove item. {msg}", flush=True)
+            return None
+        else:
+            first = self.items.pop(0)
+            return first
 
     def flush(self):
         self.items = []
@@ -192,6 +193,8 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     """Runs indefinitely unless there is a parse error or interrupt when it produces an exception
     """
     global msgcount, msggood, msgparse, msgqk, data_stack, msg_by_id
+    PREDATE_STACK = 20
+    pre_date_stack = Stack(PREDATE_STACK)
     
     poor_data = Bad_stash()
     got_data_at = tm.time()
@@ -237,25 +240,40 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                 if 'thisday' not in locals(): # first date seen
                     thisday = d['date']
                     lastday = thisday
-                    # print(f"++ Set today's date {thisday}", flush=True)
+                    print(f"++ Set today's date {thisday} '{len(pre_date_stack.items)}' lat/lon items in pre_date queue", flush=True)
                     af.write(raw) # write the date line to the filtered archive just the once
                     af.flush()
                     good_data_at = tm.time()
+                    
+                    if not pre_date_stack.is_empty():
+                        while not pre_date_stack.is_empty():
+                            i_raw, i_hdop = pre_date_stack.first(msg="pre_date items")
+                            # but just throw them away
+                            print(">> ",i_raw.decode("utf-8", "strict"))
                 else:
                     thisday = d['date']   
                     if thisday != lastday: # happens at UTC, i.e. 0300 Europe/Athens timezone.
                         # print("++ NEXT DAY", flush=True)
+                        pre_date_stack.flush()
                         raise NewDay
-                               
-            if 'thisday' not in locals(): # ie first time since restart
-                stamp = datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')
-                print(f"{stamp} -- No date yet...", flush=True)
-                continue # ignore all NMEA until we get a date       
-
+                        
             if 'time' in d:
                 t = d['time']
             else: 
                 t = 0
+                               
+            if 'thisday' not in locals(): # ie first time since restart
+                stamp = datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')
+                print(f"{stamp} -- {parsed_data.msgID} No date yet... (utf8):",raw.decode("utf-8", "strict")[:-2], flush=True)
+                if 'HDOP' in d:
+                    pre_date_stack.push((raw, float(d['HDOP'])))
+                    print(f"{parsed_data.msgID}  {t} pre_date ADD", flush=True)
+                    if pre_date_stack.is_full():
+                        print(f"{stamp} -- {parsed_data.msgID} pre_date queue full. Flushing..|", flush=True)
+                        pre_date_stack.flush()
+                continue # next NMEA sentence..
+
+                    
                 
             if 'HDOP' not in d:
                 hdop = ""
@@ -274,6 +292,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     post_size = rawfilename.stat()
                     if post_size <= pre_size:
                         print(f"{parsed_data.msgID}  {thisday} {t} UTC  - FAILED TO UPDATE RAW FILE, aborting.. ", flush=True) 
+                        pre_date_stack.flush()
                         raise NewDay
 
                     if 'HDOP' in d:
@@ -330,6 +349,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
         msg_by_id[parsed_data.msgID] += 1
         msgparse += 1
         # clears exception so calling routine just continues its while True loop
+        pre_date_stack.flush()
 
  
 def readstream(stream: socket.socket):
