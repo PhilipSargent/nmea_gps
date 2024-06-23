@@ -15,6 +15,7 @@ import shutil
 from pathlib import Path
 
 BUFSIZE = 4096
+SUFFIX = ".day.nmea"
 
 def concatenate_sorted_files(directory_path, stitched_path):
     """
@@ -43,13 +44,13 @@ def concatenate_sorted_files(directory_path, stitched_path):
                 print(filepath.name)
                 shutil.copyfileobj(ifile, sf)
     
-    # COnstruct a file for each 'day' midnight to midnight EEST
+    # Construct a file for each 'day' midnight to midnight EEST
     daypaths = {}
     for filepath in filepaths:
         if filepath.name[:2] == "20" and len(filepath.stem) == 15:
             dayname = filepath.name[:10]
             
-            daypath = directory_path / (dayname + ".day")
+            daypath = directory_path / (dayname + SUFFIX)
             if daypath.is_file():
                 daypath.unlink() # deletes pre-existing dayfiles
             daypaths[dayname] = daypath
@@ -65,7 +66,7 @@ def concatenate_sorted_files(directory_path, stitched_path):
 
                 
 if __name__ == "__main__":
-    DIR = "/home/philip/gps/nmea_data/2024-05/"
+    DIR = "/home/philip/gps/nmea_data/2024-06/"
     STITCH = "nmea.stitch"
     
     if len(sys.argv) == 3:
