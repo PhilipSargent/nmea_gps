@@ -429,6 +429,8 @@ if __name__ == "__main__":
 
     SERVER = "192.168.8.60" # the QK-A026
     PORT = 2000
+    max_tries = 200
+    socket_delay = 0.1 # seconds
     
     if len(sys.argv) == 3:
         SERVER = sys.argv[1]
@@ -442,5 +444,19 @@ if __name__ == "__main__":
     
     print(f"Opening socket {SERVER}:{PORT}...", flush=True)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.connect((SERVER, PORT))
+        tries = 1
+        while True:
+            try:
+                sock.connect((SERVER, PORT))
+                if tries > 1:
+                    print(f"++ Socket connected after {tries} tries")
+                break
+            except OSError:
+                if tries >= max_tries:
+                    print(f"++ Socket connection failed after {tries} tries = {tries*socket_delay} seconds. Exiting.")
+                    exit()
+                tries += 1
+                tm.sleep(socket_delay)
+
+                continue
         readstream(sock)
