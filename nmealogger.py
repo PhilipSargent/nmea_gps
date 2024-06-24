@@ -195,6 +195,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     global msgcount, msggood, msgparse, msgqk, data_stack, msg_by_id
     PREDATE_STACK = 20
     AGED_FILE = 60 * 2 # 2 minutes
+
     pre_date_stack = Stack(PREDATE_STACK)
     
     poor_data = Bad_stash()
@@ -217,8 +218,11 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                 pre_time = tm.time()
                 
                 since = pre_time - pre_mod_time
-                if  since > AGED_FILE:
-                    print(f"_  Long time since last {rawfilename.name} modification: {since/60:.2f} minutes")                    
+                if  since > 2 * AGED_FILE:
+                    print_summary(f"\n__ Very long time since last {rawfilename.name} modification: {since/60:.2f} minutes")        
+                elif  since > AGED_FILE:
+                    print(f"_  Long time since last {rawfilename.name} modification: {since/60:.2f} minutes")    
+                    
             
                 if not parsed_data:
                     # skip unparseable, even if there is no exception thrown - happens when QK butts in.
@@ -401,7 +405,7 @@ def readstream(stream: socket.socket):
             archivefilename = archivedir / (newstart.strftime('%Y-%m-%d_%H%M') +".nmea")
             rawfilename = rawdir / (newstart.strftime('%Y-%m-%d_%H%M') +".nmea")
                 
-            print(f"Writing {archivefilename}  and  {rawfilename}", flush=True)
+            print(f"Writing\n {archivefilename}\n {rawfilename}", flush=True)
             with open(archivefilename, 'ab', buffering=file_bufsize) as af: # ab not wr just in case the filename is unchanged.. 
                 with open(rawfilename, 'ab', buffering=file_bufsize) as rawf: # ab not wr just in case the filename is unchanged.. 
                     while True:
