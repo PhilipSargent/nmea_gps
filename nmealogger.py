@@ -194,6 +194,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     """
     global msgcount, msggood, msgparse, msgqk, data_stack, msg_by_id
     PREDATE_STACK = 20
+    AGED_FILE = 60 * 2 # 2 minutes
     pre_date_stack = Stack(PREDATE_STACK)
     
     poor_data = Bad_stash()
@@ -212,7 +213,12 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     raise FileNotFoundError( errno.ENOENT, os.strerror(errno.ENOENT), rawfilename)
                     
                 pre_size = rawfilename.stat()
+                pre_mod_time = rawfilename.stat().st_mtime # modification time
                 pre_time = tm.time()
+                
+                since = pre_time - pre_mod_time
+                if  since > AGED_FILE:
+                    print(f"_  Long time since last {rawfilename.name} modification: {since/60:.2f} minutes")                    
             
                 if not parsed_data:
                     # skip unparseable, even if there is no exception thrown - happens when QK butts in.
