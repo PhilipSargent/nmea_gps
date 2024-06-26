@@ -214,9 +214,10 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                     raise FileNotFoundError( errno.ENOENT, os.strerror(errno.ENOENT), rawfilename)
                     
                 pre_size = rawfilename.stat()
-                pre_mod_time = rawfilename.stat().st_mtime # modification time
+                pre_mod_time = rawfilename.stat().st_mtime # modification time - check if process hung somehow
                 pre_time = tm.time()
                 
+                # This is to check for hung process, but it never gets triggered. Hang must be somewhere else.. inside nmr ?
                 since = pre_time - pre_mod_time
                 if  since > 2 * AGED_FILE:
                     print_summary(f"\n__ Very long time since last {rawfilename.name} modification: {since/60:.2f} minutes")        
@@ -344,7 +345,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                             lat = 0
                             lon = 0
 
-                if msgcount in [0, 500, 1000, 10000, 100000, 200000]: 
+                if msgcount in [0, 500, 1000, 10000, 50000, 100000, 200000]: 
                     print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}", flush=True)
                 msgcount += 1            
                 # if msgcount % 100000 == 0: 
@@ -391,10 +392,10 @@ def readstream(stream: socket.socket):
     archivedir = parentdir / Path("nmea_data") / Path(start.strftime('%Y-%m'))
     archivedir.mkdir(parents=True, exist_ok=True)
  
-    rawdir = parentdir / Path("nmea_raw") / Path(start.strftime('%Y-%m'))
+    rawdir = parentdir / Path("nmea_rawd") / Path(start.strftime('%Y-%m'))
     rawdir.mkdir(parents=True, exist_ok=True)
  
-    while True:  # when prse errors caused this to restart, this was sensible. But now all exceptions terminate except NewDay.
+    while True:  # when parse errors caused this to restart, this was sensible. But now all exceptions terminate except NewDay.
         msgcount = 0
         msggood = 0
         msgparse = 0
