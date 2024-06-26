@@ -163,7 +163,7 @@ def print_summary(msg=None):
     dur = datetime.now(tz=TZ) - start
     secs = dur.seconds + dur.microseconds / 1e6
 
-    print(f"{stamp} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB {msgcount:,d}  {msg}", flush=True)
+    print(f"{stamp} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}  {msg}", flush=True)
     print(
     f"\n {totcount:,d} messages read in {secs:.2f} seconds ({secs/3600:.2f} hours)",
     f"\n {totgood:,d} messages with valid lat/lon logged,",
