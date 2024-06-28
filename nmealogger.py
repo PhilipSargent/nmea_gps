@@ -195,6 +195,8 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     global msgcount, msggood, msgparse, msgqk, data_stack, msg_by_id
     PREDATE_STACK = 20
     AGED_FILE = 60 * 2 # 2 minutes
+    NMR_DELAY = 0.5 # seconds when nmr iterator rus out of steam
+    NMR_DELAYS = 50 # number of delays allowed before termination
 
     pre_date_stack = Stack(PREDATE_STACK)
     
@@ -205,6 +207,8 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     while True: # to cope with parse exception breaking the infinite generator
         try:
             for (raw, parsed_data) in nmr: # nmr is an infinite iterator - or is meant to be !
+                nmr_delays = 0
+ 
                 if msgcount > LONG_ENOUGH - 1:
                     raise NewLogs
                     
@@ -351,7 +355,12 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                 # if msgcount % 100000 == 0: 
                     # print_summary(msg="")
                     
-            print(f"~~ No more data in iterator 'nmr'. This should never happen.")
+            nmr_delays += 1
+            #print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} ~~ No more data in iterator 'nmr' {nmr_delays}. This should never happen.")
+            tm.sleep(NMR_DELAY)
+            if nmr_delays >= NMR_DELAYS:
+                print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} ~~ {NMR_DELAYS*NMR_DELAY} seconds since nmr iterator response. {nmr_delays} tries. Aborting. ")
+                sys.exit(1)
                     
         except nme.NMEAParseError as e:
             
@@ -365,7 +374,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             # clears exception so calling routine just continues its while True loop
             pre_date_stack.flush()
 
-    print(f"~~ Dropped off end of parsestream function. This should not happen as it is in a while True loop.")
+    print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} ~~ Dropped off end of parsestream function. This should not happen as it is in a while True loop.")
 
  
 def readstream(stream: socket.socket):
@@ -387,7 +396,7 @@ def readstream(stream: socket.socket):
     )
     file_bufsize = 1024
     
-    # nmea_data gets rsync'd to server, nmea_raw does not.
+    # nmea_data gets rsync'd to server, nmea_rawd does not.
     parentdir = Path(__file__).parent.parent
     archivedir = parentdir / Path("nmea_data") / Path(start.strftime('%Y-%m'))
     archivedir.mkdir(parents=True, exist_ok=True)
