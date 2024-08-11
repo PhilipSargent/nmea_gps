@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
 
     if len(sys.argv) == 2:
-        print(f"Either with no parameters or with directory and stitch filename, e.g.\n$ python nmeastich.py /home/philip/gps/nmea_data/2024-05 nmea.stitch", flush=True)
+        print(f"Either with no parameters or with directory and stitch filename, e.g.\n$ python nmeastitch.py /home/philip/gps/nmea_data/2024-05 nmea.stitch", flush=True)
         sys.exit(1)    
 
     directory_path = Path(DIR)  
