@@ -17,5 +17,7 @@ pkill "ssh-agent -s"
 
 echo nmea data copy ran ok.
 # Here's the part you need to append, provided here separately for easy copy/pasting:
-&& curl -fsS -m 10 --retry 5 -o /dev/null https://hc-ping.com/9cac10d3-757d-4ff3-96cc-e7714825e35f
+# https://healthchecks.io/checks/9cac10d3-757d-4ff3-96cc-e7714825e35f/details/
+# using wget (10 second timeout, retry up to 5 times):
+wget https://hc-ping.com/9cac10d3-757d-4ff3-96cc-e7714825e35f -T 10 -t 5 -O /dev/null
 echo healthchecks.io GET ran ok
