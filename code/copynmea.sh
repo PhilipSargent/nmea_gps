@@ -16,3 +16,6 @@ rsync -avz -e "ssh -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/d
 pkill "ssh-agent -s"
 
 echo nmea data copy ran ok.
+# Here's the part you need to append, provided here separately for easy copy/pasting:
+&& curl -fsS -m 10 --retry 5 -o /dev/null https://hc-ping.com/9cac10d3-757d-4ff3-96cc-e7714825e35f
+echo healthchecks.io GET ran ok
