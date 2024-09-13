@@ -206,6 +206,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     
     while True: # to cope with parse exception breaking the infinite generator
         try:
+            nmr_delays = 0
             for (raw, parsed_data) in nmr: # nmr is an infinite iterator - or is meant to be !
                 nmr_delays = 0
  
