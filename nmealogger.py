@@ -162,6 +162,11 @@ def print_summary(msg=None):
     stamp = datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')
     dur = datetime.now(tz=TZ) - start
     secs = dur.seconds + dur.microseconds / 1e6
+    
+    if totcount == 0:
+        pcent = 0
+    else:
+        pcent = totparse/totcount
 
     print(f"{stamp} - Memory footprint: {resource.getrusage(resource.RUSAGE_SELF)[2] / 1024.0:.6f} MB  {msgcount:,d}  {msg}", flush=True)
     print(
@@ -169,7 +174,7 @@ def print_summary(msg=None):
     f"\n {totgood:,d} messages with valid lat/lon logged,",
     f"\n   {totgood/secs:.2f} msgs per second",
     f"\n   {totqk:,d} QK corruptions",
-    f"\n   {totparse:,d} parse errors ({totparse/totcount:.2%})",
+    f"\n   {totparse:,d} parse errors ({pcent:.2%})",
     flush=True,
     )
     for id in msg_by_id:
