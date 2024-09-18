@@ -14,5 +14,5 @@ printf "put -p /root/code_data/alltxt.tar.gz /root/code_data/alltxt.tar.gz\nbye"
 
 crontab -l >/root/code_data/crontab.txt
 printf "put -p /root/code_data/crontab.txt /root/code_data/crontab.txt\nbye" | sftp -P 10037 root@admin.djangotest.vs.mythic-beasts.com
-pkill "ssh-agent -s"
+#pkill "ssh-agent -s"
 echo Revised copyscript  ran.

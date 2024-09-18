@@ -1,7 +1,8 @@
 #!/bin/sh 
-# updated 14 May 2024
-# copy to nmea not to root
+# updated 18 Sept. 2024
+# copies to /home/nmea not to /root
 # started by crontab, every 7 minutes
+pkill ssh-agent
 eval $(ssh-agent -s)
 ssh-add /root/.ssh/id_papaya
 
@@ -13,7 +14,7 @@ touch nmealogger_rsynced.txt
 
 # this is good for 2024 to 2099
 rsync -avz -e "ssh -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data
-pkill "ssh-agent -s"
+#pkill "ssh-agent -s"
 
 echo nmea data copy ran ok.
 # Here's the part you need to append, provided here separately for easy copy/pasting:
