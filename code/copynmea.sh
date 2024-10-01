@@ -16,6 +16,9 @@ touch nmealogger_rsynced.txt
 rsync -avz -e "ssh -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data
 #pkill "ssh-agent -s"
 
+# reverse copy from server to laptop:
+# rsync -avz -e "ssh -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"   root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data ../nmea_data
+
 echo nmea data copy ran ok.
 # Here's the part you need to append, provided here separately for easy copy/pasting:
 # https://healthchecks.io/checks/9cac10d3-757d-4ff3-96cc-e7714825e35f/details/
