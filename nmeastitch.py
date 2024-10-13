@@ -36,12 +36,14 @@ def concatenate_sorted_files(directory_path, stitched_path):
             sys.exit(1)
         if filepath.suffix != ".nmea":
             filepaths.remove(filepath)
+        if ".day" in filepath.suffixes:
+            filepaths.remove(filepath)
 
     print(f"{len(filepaths)} Concatenated files in {directory_path} (dictionary order):")
     with stitched_path.open('wb', buffering=BUFSIZE) as sf: #
         for filepath in filepaths:
             with filepath.open('rb', buffering=BUFSIZE) as ifile:
-                print(filepath.name)
+                print(filepath.name, filepath.suffixes)
                 shutil.copyfileobj(ifile, sf)
     
     # Construct a file for each 'day' midnight to midnight EEST
