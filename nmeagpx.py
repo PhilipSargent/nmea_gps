@@ -393,7 +393,7 @@ class NMEATracker:
         self._trkfile.close()
 
 
-def main(indir, insuffix):
+def main(indir, midsuffix, insuffix):
     """
     Main routine.
     """
@@ -413,8 +413,9 @@ def main(indir, insuffix):
     infiles = []
     for filepath in filepaths:
         if filepath.suffix == insuffix:
-            infiles.append(filepath)
-    print(f"{len(infiles)} files to convert to GPX")
+            if Path(filepath.stem).suffix == midsuffix:
+                infiles.append(filepath)
+    print(f"{len(infiles)} {midsuffix}{insuffix} files to convert to GPX")
             
     for i in infiles:
         #print(f" in", i.name)
@@ -437,15 +438,17 @@ def main(indir, insuffix):
 
 if __name__ == "__main__":
 
-    INDIR = "/home/philip/gps/nmea_data/2024-05/"
-    INSUFFIX = ".day"
+    INDIR = "/home/philip/gps/nmea_data/2024-06/"
+    MIDSUFFIX = ".day" # i.e. ".day.nmea"
+    INSUFFIX = ".nmea"
     
     if len(sys.argv) == 3:
         INDIR = sys.argv[1]
-        INSUFFIX = sys.argv[2]
+        MIDSUFFIX = sys.argv[2]
+        INSUFFIX = sys.argv[3]
 
 
-    if len(sys.argv) >3:
-        print(f"Either with no parameters or with nmea directory and suffix e.g.\n$ python nmeagpx.py /home/philip/gps/nmea_data/2024-05/ .day", flush=True)
+    if len(sys.argv) >4:
+        print(f"Either with no parameters or with nmea directory & suffix & midsuffix e.g.\n$ python nmeagpx.py /home/philip/gps/nmea_data/2024-05/ '.day' '.nmea'", flush=True)
 
-    main(INDIR, INSUFFIX)
+    main(INDIR, MIDSUFFIX, INSUFFIX)
