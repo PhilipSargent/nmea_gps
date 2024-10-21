@@ -37,7 +37,8 @@ def concatenate_sorted_files(directory_path, stitched_path):
         if filepath.suffix != ".nmea":
             filepaths.remove(filepath)
         if ".day" in filepath.suffixes:
-            filepaths.remove(filepath)
+            if filepath in filepaths:
+                filepaths.remove(filepath)
 
     print(f"{len(filepaths)} Concatenated files in {directory_path} (dictionary order):")
     with stitched_path.open('wb', buffering=BUFSIZE) as sf: #

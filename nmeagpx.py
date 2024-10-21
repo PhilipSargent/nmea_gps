@@ -24,7 +24,7 @@ https://github.com/semuconsulting/pynmeagps
 
 import os, sys
 #import math
-from datetime import datetime, date, timezone, timedelta
+from datetime import datetime, date, timezone, timedelta, time
 from pathlib import Path
 from sys import argv
 from time import strftime
@@ -54,6 +54,12 @@ GITHUB_LINK = "https://github.com/semuconsulting/pynmeagps"
 
 stack_max = 0
 
+def is_in_time_period(startTime, endTime, check_time):
+    if startTime < endTime:
+        return startTime <= check_time <= endTime
+    else: #Over midnight
+        return check_time >= startTime or check_time <= endTime
+        
 def strim(nmealat):
     """Strims off the ..667 or ..333 at the end of the string
     we do not need this pointless precision"""
@@ -72,9 +78,9 @@ class Stack:
     A simple stack implementation with a maximum size.
     We are using it to store NMEA sentences
     
-    We want to empty th estack if the next reading is 
+    We want to empty the stack if the next reading is 
     - out of range of the bounding box
-    - a long time after the box started, we want at least one readiong an hour.
+    - a long time after the box started, we want at least one reading an hour.
     
     We also have to manage the hdop value, ele, time and fix
     """
@@ -119,9 +125,15 @@ class Stack:
             return False
             
         duration = dat - self._first
+        last_item, last_dat = self._items[-1]
+
+        if dat < last_dat:
+            # actually this is the clock running into the next day in TIME, but not changing the DATE, 
+            # because there hasn't been an RMC to do that..
+            print(f"TIME TRAVEL: '{dat}' < '{last_dat}'\nGap:{dat - last_dat} h:m:s  Spread in stack:{last_dat - self._first} h:m:s")
+           
         if duration > timedelta(minutes=STACK_MINUTES):
-            last_item, last_dat = self._items[-1]
-            print(f"Gap:{dat - last_dat} h:m:s  Spread in stack:{last_dat - self._first} ")
+            print(f"Gap:{dat - last_dat} h:m:s  Spread in stack:{last_dat - self._first} h:m:s")
             return False
         
         # distance from centroid
@@ -258,20 +270,28 @@ class NMEATracker:
 
         self.write_gpx_hdr()
         #print(self._nmeareader, self._infile)
+        prev_time = time(0, 0, 0, 0) # midnight
+        date_updated = False
         for _, msg in self._nmeareader:  # invokes iterator method
             n += 1
             try:
                 d = msg.__dict__
                 if 'date' in d and d['date'] != "": # only RMC, but get it anywhere if it exists
+                    # if self._infile.name == "/home/philip/gps/nmea_data/2024-06/2024-06-06.day.nmea":
+                        # print(f"++ RMC date '{d['date']}'   {msg.msgID} line:{n:6} in {self._infile.name}")
                     if not self._thisday:
                         self._thisday = d['date']
+                        date_updated = True
+                        timestamp_updated = msg.time
                         # print(f"++ Set date as '{self._thisday}' {msg.msgID} line:{n:6}")
                     else:
                         if self._thisday == d['date']:
                             pass # ignore, same day
                         else:
+                            prev = self._thisday
                             self._thisday = d['date']
-                            print(f"++ New date as '{self._thisday}' {msg.msgID} line:{n:6} in {self._infile.name}")
+                            print(f"++ New date as '{self._thisday}'  (was {prev}) {msg.msgID} line:{n:6} in {self._infile.name}")
+                            date_updated = True
                         
                     
                 
@@ -282,7 +302,23 @@ class NMEATracker:
                         # we could use the filename, if that has been set to have the date.. nah.
                         print(f".. Skipping, no date.. {tim}. This should NOT happen.")
                         continue
-                    dat = datetime.combine(self._thisday, msg.time, timezone.utc)
+                    if msg.time < prev_time:
+                        # either bad data or midnight rollover
+                        # unfortunately we do see RMC datetime not quite the same as GGA, e.g.000001.00 on the line *before* 235956
+                        # GPRMC,000001.00,A,3706.41595,N,02652.43965,E,0.287,,060624,,,A*7A
+                        # $GPGGA,235956.00,3706.41566,N,02652.43976,E,1,10,0.94,6.6,M,32.1,M,,*50
+                        # so the new date is set, but then immediately it appears that a midnight has occured.
+                        # solution: re-order RMC sentences into GGA order.. but how?
+                        if not date_updated:
+                            if is_in_time_period(prev_time, msg.time, timestamp_updated):
+                                print(f"Midnight NOT rolledover {prev_time} to {msg.time}  (last done {timestamp_updated}) now: {self._thisday} line:{n:6} in {self._infile.name}")
+                            else:
+                                self._thisday += timedelta(days=1)
+                                d['date'] = self._thisday
+                                print(f"Midnight rollover  from {prev_time} to {msg.time}  (last done {timestamp_updated}) now: {self._thisday} line:{n:6} in {self._infile.name}")
+                    dat = datetime.combine(self._thisday, msg.time, timezone.utc) # BUG! midnight rollover does not change day
+                    prev_time = msg.time
+                    date_updated = False # reset to wait for next RMC update
 
                        
                     lat = strim(msg.lat)
@@ -340,7 +376,7 @@ class NMEATracker:
             f"<metadata>"
             f'<link href="{GITHUB_LINK}"><text>pynmeagps</text></link><time>{date}</time>'
             "</metadata>\n"
-            f"<trk><name>GPX track from NMEA log {self._filename}</name>\n <trkseg>\n"
+            f"<trk><name>GPX track from NMEA log {self._filename}</name>\n <trkseg><name>{self._filename}-SEG1</name>\n"
         )
 
         self._trkfile.write(gpxtrack)
