@@ -69,7 +69,7 @@ def concatenate_sorted_files(directory_path, stitched_path):
                 
 if __name__ == "__main__":
     DIR = "/home/philip/gps/nmea_data/2024-06/"
-    STITCH = "nmea.stitch"
+    STITCH = "stitch.nmea"
     
     if len(sys.argv) == 3:
         DIR = sys.argv[1]
