@@ -130,10 +130,10 @@ class Stack:
         if dat < last_dat:
             # actually this is the clock running into the next day in TIME, but not changing the DATE, 
             # because there hasn't been an RMC to do that..
-            print(f"TIME TRAVEL: '{dat}' < '{last_dat}'\nGap:{dat - last_dat} h:m:s  Spread in stack:{last_dat - self._first} h:m:s")
+            print(f"TIME TRAVEL: '{dat}' < '{last_dat}'\nGap:{dat - last_dat} h:m:s  Duration in [{len(self._items)}] stack:{last_dat - self._first} h:m:s")
            
         if duration > timedelta(minutes=STACK_MINUTES):
-            print(f"Gap:{dat - last_dat} h:m:s  Spread in stack:{last_dat - self._first} h:m:s")
+            print(f"Gap:{dat - last_dat} h:m:s from {last_dat} to {dat}  Duration in [{len(self._items)}] stack:{last_dat - self._first} h:m:s")
             return False
         
         # distance from centroid
@@ -291,6 +291,8 @@ class NMEATracker:
                             prev = self._thisday
                             self._thisday = d['date']
                             print(f"++ New date as '{self._thisday}'  (was {prev}) {msg.msgID} line:{n:6} in {self._infile.name}")
+                            if self._thisday < prev:
+                                print(f"## i.e. clock going backwards ! ")
                             date_updated = True
                         
                     
@@ -478,7 +480,7 @@ if __name__ == "__main__":
     MIDSUFFIX = ".day" # i.e. ".day.nmea"
     INSUFFIX = ".nmea"
     
-    if len(sys.argv) == 3:
+    if len(sys.argv) == 4:
         INDIR = sys.argv[1]
         MIDSUFFIX = sys.argv[2]
         INSUFFIX = sys.argv[3]

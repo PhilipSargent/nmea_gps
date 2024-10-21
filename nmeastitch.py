@@ -20,6 +20,7 @@ SUFFIX = ".day.nmea"
 def concatenate_sorted_files(directory_path, stitched_path):
     """
     Concatenates all files in a directory in dictionary order.
+    This DOES NOT CHECK that the GNSS timestamps are actually int he correct order.
 
     Args:
       directory_path: The path to the directory containing the files (as a pathlib.Path object).

@@ -198,6 +198,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     """Runs indefinitely unless there is a parse error or interrupt when it produces an exception
     """
     global msgcount, msggood, msgparse, msgqk, data_stack, msg_by_id
+    runcount = 0
     PREDATE_STACK = 20
     AGED_FILE = 60 * 2 # 2 minutes
     NMR_DELAY = 0.5 # seconds when nmr iterator rus out of steam
@@ -214,6 +215,11 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             # nmr_delays = 0 # this caused crashes? Or do I just need to rebiit router??
             for (raw, parsed_data) in nmr: # nmr is an infinite iterator - or is meant to be !
                 nmr_delays = 0
+                runcount +=1
+                
+                if runcount == 1:
+                    # throw away the first sentence as it is from the previous run, not cleaned out by exception.
+                    continue
  
                 if msgcount > LONG_ENOUGH - 1:
                     raise NewLogs
