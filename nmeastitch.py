@@ -28,24 +28,42 @@ def concatenate_sorted_files(directory_path, stitched_path):
     """
         
     # Get nmea filepaths (Path objects) sorted by lowercase name. We have made these in datetime UTC order.
+    # DO NOT chnage the members of a list while the list is being iterated !
     filepaths = sorted(directory_path.iterdir(), key=lambda p: p.name.lower())
+    print(f"{len(filepaths)} All files in {directory_path} (dictionary order):")
+    not_wanted = set()
     if stitched_path in filepaths:
-        filepaths.remove(stitched_path)
+        #filepaths.remove(stitched_path)
+        not_wanted.add(stitched_path)
     for filepath in filepaths:
         if not filepath.is_file():
             print(f"Not a file: {filepath} \nSomething serious went wrong.")
             sys.exit(1)
         if filepath.suffix != ".nmea":
-            filepaths.remove(filepath)
+            # filepaths.remove(filepath)
+            not_wanted.add(filepath)
+            # print(f"_ (not .nmea) not using {filepath.name}")
         if ".day" in filepath.suffixes:
             if filepath in filepaths:
-                filepaths.remove(filepath)
+                # filepaths.remove(filepath)
+                not_wanted.add(filepath)
+                # print(f"_ (has  .day) not using {filepath.name}")
+        if ".gpx" in filepath.suffixes:
+            if filepath in filepaths:
+                #filepaths.remove(filepath)
+                not_wanted.add(filepath)
+                # print(f"_ (has  .gpx) not using {filepath.name}")
 
+    for f in not_wanted:
+        filepaths.remove(f)
+        
     print(f"{len(filepaths)} Concatenated files in {directory_path} (dictionary order):")
     with stitched_path.open('wb', buffering=BUFSIZE) as sf: #
         for filepath in filepaths:
             with filepath.open('rb', buffering=BUFSIZE) as ifile:
                 print(filepath.name, filepath.suffixes)
+                if ".gpx" in filepath.suffixes:
+                    print(f"! (has  .gpx) {filepath.name}")
                 shutil.copyfileobj(ifile, sf)
     
     # Construct a file for each 'day' midnight to midnight EEST
@@ -58,7 +76,8 @@ def concatenate_sorted_files(directory_path, stitched_path):
             if daypath.is_file():
                 daypath.unlink() # deletes pre-existing dayfiles
             daypaths[dayname] = daypath
-    print(daypaths)
+    for dp in daypaths:
+        print(dp, daypaths[dp])
     
     for filepath in filepaths:
         dn = filepath.name[:10]
