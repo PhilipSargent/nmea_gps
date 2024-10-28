@@ -172,7 +172,7 @@ def print_summary(msg=None):
     print(
     f"\n {totcount:,d} messages read in {secs:.2f} seconds ({secs/3600:.2f} hours)",
     f"\n {totgood:,d} messages with valid lat/lon logged,",
-    f"\n   {totgood/secs:.3f} msgs per second",
+    f"\n   {totgood/secs:.3f} msgs/s {60*totgood/secs:.3f} msgs/minute",
     f"\n   {totqk:,d} QK corruptions",
     f"\n   {totparse:,d} parse errors ({pcent:.2%})",
     flush=True,
