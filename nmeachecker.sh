@@ -5,10 +5,6 @@
 # Define threshold (in minutes)
 threshold=13
 
-# define directory, on Guava router, to check for updates.
-directory=/root/nmea_data/2024-05
-#directory=../nmea_data/2024-05
-
 # Get the current time (in seconds since epoch)
 current_time=$(date +%s)
 
@@ -44,7 +40,7 @@ if [ $found_updated -ne 1 ]; then
   # so kill the .py process, wich terminates the .sh script
   # cron will then restart it in 3 minutes
   touch /root/nmea_data/nmealogger-hung.txt
-  echo `date` "Hung: no update in $threshold minutes." >> /root/nmea_data/nmealogger_error.txt
+  echo `date` "Hung: no update in $threshold minutes. (nmeachecker.sh)" >> /root/nmea_data/nmealogger_error.txt
   pkill -ef "python /root/nmea_gps/nmealogger.py"
   exit 1
 # else
