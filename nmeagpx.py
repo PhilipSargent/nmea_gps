@@ -360,7 +360,7 @@ class NMEATracker:
 
         self.write_gpx_tlr()
 
-        print(f"{i:6d} GGA message{'' if i == 1 else 's'} -> trackpoints from {self._filename.name} to {self._trkfname.name} box: {bb.diameter():.1f} m")
+        print(f"{i:6d} GGA message{'' if i == 1 else 's'} -> trackpoints from {self._filename.name} to {self._trkfname.name} box: {bb.diameter():.1f} m\n")
         return bb
 
     def write_gpx_hdr(self):
