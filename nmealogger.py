@@ -6,10 +6,10 @@ archive raw NMEA which stays on the SD card but also filtered NMEA which gets up
 
 
 Run from a shell script, which terminates if this terminates.
-crontab pgrep detects isf the shell script is running, and if not, it restarts the shell script and thus this
+crontab pgrep detects if the shell script is running, and if not, it restarts the shell script and thus this
 programe.
 
-Puzzle: this terminates at random, and I don't know why yet. But crontab restarts fine.
+Puzzle: this terminates at random, due to bad SD card, now replaced. crontab restarts fine.
 
 Problem: over-stressing anchor winch got the router into a strange condition where 
 it did not load extroot and so nothing was running. Thsi can only be detected by something
@@ -61,7 +61,7 @@ TZ = ZoneInfo('Europe/Athens')
 
 class NewDay(Exception):
     """
-    When the UTC day changes, which is about 3am Greek time in Summer
+    When the UTC day changes, which is about 3am Greek time in summer, 2am in winter
     """
 class NewLogs(Exception):
     """
@@ -139,6 +139,7 @@ class Stack:
  
     def best(self):
         # for (raw, hdop) tuple, return raw value with lowest HDOP
+        # this does not check that all the items are within a second or so, which it should
         besthdop = 99
         for i in self.items:
             raw, hdop = i
@@ -182,7 +183,7 @@ def print_summary(msg=None):
 
 def strim(nmealat):
     """Strims off the ..667 or ..333 at the end of the string
-    we do not need this pointless precision"""
+    we do not need this pointless and artificial precision"""
     st = str(nmealat)
     if len(st) < 13:
         return nmealat
@@ -195,7 +196,8 @@ def strim(nmealat):
     
 
 def parsestream(nmr, af, archivefilename, rawf, rawfilename):
-    """Runs indefinitely unless there is a parse error or interrupt when it produces an exception
+    """Runs indefinitely unless there is a parse error or interrupt when it produces an exception,
+    but it seems to hang frequently.
     """
     global msgcount, msggood, msgparse, msgqk, data_stack, msg_by_id
     runcount = 0
