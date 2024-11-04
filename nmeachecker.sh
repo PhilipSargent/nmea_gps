@@ -5,12 +5,14 @@
 
 # Define threshold (in minutes)
 threshold=13
+usual=1
 
 # Get the current time (in seconds since epoch)
 current_time=$(date +%s)
 
 # Calculate the threshold time (current time minus threshold in minutes)
 threshold_time=$((current_time - (threshold * 60)))
+usual_time=$((current_time - (usual * 60)))
 
 # Loop through files in the directory
 found_updated=0  # Flag to track if any updated file is found
@@ -31,6 +33,11 @@ for directory in $dir_root; do
           found_updated=1
           updated=$filename
         fi
+        # Compare with usual time
+        if [ $file_mtime -gt $usual_time ]; then
+          usual_updated=1
+          usual_fn=$filename
+        fi
       fi
     done
 done
@@ -48,4 +55,8 @@ if [ $found_updated -ne 1 ]; then
   # echo `date` "$filename updated recently"
 fi
 
+if [ $usual_updated -ne 1 ]; then
+  echo `date` "No files in '$directory' have been updated in the last $usual minutes."
+  echo `date` "Slow: no update in $usual minutes.  $file_mtime nmeachecker.sh" >> /root/nmea_data/nmealogger_error.txt
+fi
 exit 0
