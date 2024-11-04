@@ -35,7 +35,7 @@ from pynmeagps.nmeahelpers import planar, haversine
 
 M_PER_NM = 1852 # 1929 First International Extraordinary Hydrographic Conference in Monaco 
 
-JIGGLE = 3.4/2 # anything within 3m is considered the "same" point. This is the half-width of the boat
+JIGGLE = 3.4/3 # anything within 1.13m is considered the "same" point. This is the third-width of the boat
 STACK_MINUTES = 90 # how long we wait before flushing the stack
 MAXSTACK = 300
 
@@ -141,7 +141,7 @@ class Stack:
         distance = planar(centroid_lat, centroid_lon, msg.lat, msg.lon)
         if distance > JIGGLE:
             # print(f"JIGGLED {distance:.2f} m")
-            return False
+            return False # i.e. too far away to be averaged in, so restart the stack
         
         self.push(msg_item)
         return True
@@ -464,13 +464,13 @@ def main(indir, midsuffix, insuffix):
         tkr.close()
         
         # print(f"Box diameter: {bound_box.diameter():.1f} m", bound_box.report())
-        if bound_box.diameter() > 100: # 100 metres
+        if bound_box.diameter() > 30: # 30 metres
             trips.append((i.name, bound_box.diameter()))
             
         
     for t in trips:
         name, diam = t
-        print(f"{name} bounding box diameter: ~{diam/M_PER_NM:6.2f} NM ")
+        print(f"{name} box: ~{diam/M_PER_NM:6.2f} NM ")
     print(f"Finished all files, max stack used: {stack_max}")
 
 
