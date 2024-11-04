@@ -470,7 +470,7 @@ def main(indir, midsuffix, insuffix):
         
     for t in trips:
         name, diam = t
-        print(f"{name} ~{diam/M_PER_NM:6.2f} NM")
+        print(f"{name} bounding box diameter: ~{diam/M_PER_NM:6.2f} NM ")
     print(f"Finished all files, max stack used: {stack_max}")
 
 
