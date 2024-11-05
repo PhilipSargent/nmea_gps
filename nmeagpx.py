@@ -35,9 +35,9 @@ from pynmeagps.nmeahelpers import planar, haversine
 
 M_PER_NM = 1852 # 1929 First International Extraordinary Hydrographic Conference in Monaco 
 
-JIGGLE = 3.4/3 # anything within 1.13m is considered the "same" point. This is the third-width of the boat
+JIGGLE = 3.4/5 # anything within this is considered the "same" point. This is the fifth-width of the boat
 STACK_MINUTES = 90 # how long we wait before flushing the stack
-MAXSTACK = 300
+MAXSTACK = 200 # maxium bumber of points to amalgamate even if they are very close
 
 XML_HDR = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 
@@ -89,12 +89,28 @@ class Stack:
         self._items = []
         self._box = BoundingBox()
         self._first = None
+        self.full_count = 0
+        
+    def first(self):
+        return self._items[0]
+
+    def last(self):
+        return self._items[-1]
+        
+    def first_date(self):
+        msg, dat = self.first()
+        return dat
 
     def is_empty(self):
         return len(self._items) == 0
 
     def is_full(self):
-        return len(self._items) == self.max_size
+        full = len(self._items) == self.max_size
+        if full:
+            self.full_count += 1
+            duration = self.duration()
+            print(f"stack full #{self.full_count}  diameter: {self.diameter():.1f} m  {duration} h:m:s from {self.first_date()}")        
+        return full
 
     def push(self, msg_item):
         msg, dat = msg_item
@@ -124,7 +140,7 @@ class Stack:
             print("QUALITY FIX change") # never happens!
             return False
             
-        duration = dat - self._first
+        since = dat - self._first
         last_item, last_dat = self._items[-1]
 
         if dat < last_dat:
@@ -132,13 +148,15 @@ class Stack:
             # because there hasn't been an RMC to do that..
             print(f"TIME TRAVEL: '{dat}' < '{last_dat}'\nGap:{dat - last_dat} h:m:s  Duration in [{len(self._items)}] stack:{last_dat - self._first} h:m:s")
            
-        if duration > timedelta(minutes=STACK_MINUTES):
-            print(f"Gap:{dat - last_dat} h:m:s from {last_dat} to {dat}  Duration in [{len(self._items)}] stack:{last_dat - self._first} h:m:s")
+        if since > timedelta(minutes=STACK_MINUTES):
+            print(f"Gap:{dat - last_dat} h:m:s from {last_dat} to {dat}  Duration in [{len(self._items)}] stack:{last_dat - self._first} h:m:s ")
             return False
         
         # distance from centroid
         centroid_lat, centroid_lon  = self._box.centroid()
-        distance = planar(centroid_lat, centroid_lon, msg.lat, msg.lon)
+        distance = planar(centroid_lat, centroid_lon, msg.lat, msg.lon) # in metres
+        if distance > 50:
+            distance = haversine(centroid_lat, centroid_lon, msg.lat, msg.lon, radius = 6378137.0) # in metres
         if distance > JIGGLE:
             # print(f"JIGGLED {distance:.2f} m")
             return False # i.e. too far away to be averaged in, so restart the stack
@@ -152,10 +170,20 @@ class Stack:
             stack_max =len(self._items)
         self._items = []
         self._first = None
+        # self.full_count = 0
         self._box = BoundingBox()
         
     def centroid(self):
         return self._box.centroid()
+
+    def diameter(self):
+        return self._box.diameter()
+
+    def duration(self):
+        # The length of time as a timedelta object between the first and last items in the stack
+        msg_first, dat_first = self.first()
+        msg_last, dat_last = self.last()
+        return dat_last - dat_first
         
     def median(self):
         """Weighting lat & lon by hdop is tricky
@@ -210,9 +238,9 @@ class BoundingBox:
         return (self._maxlat + self._minlat)/2, (self._maxlon + self._minlon)/2
         
     def diagonal_R(self):
-        return planar(self._minlat, self._minlon, self._maxlat, self._maxlon)
+        return haversine(self._minlat, self._minlon, self._maxlat, self._maxlon, radius = 6378137.0)
     def diagonal_L(self):
-        return planar(self._minlat, self._maxlon, self._maxlat, self._minlon)
+        return haversine(self._minlat, self._maxlon, self._maxlat, self._minlon, radius = 6378137.0)
         
     def diameter(self):
         return (self.diagonal_R() + self.diagonal_L())/2
@@ -266,6 +294,7 @@ class NMEATracker:
 
         i = 0
         n = 0
+        tp = 0
         self._nmeareader = NMEAReader(self._infile, validate=validate)
 
         self.write_gpx_hdr()
@@ -353,6 +382,7 @@ class NMEATracker:
                             fix=fix,
                             hdop=hdop,
                         )
+                        tp += 1
                     i += 1
             except (nme.NMEAMessageError, nme.NMEATypeError, nme.NMEAParseError) as err:
                 print(f"Something went wrong {err}")
@@ -360,7 +390,7 @@ class NMEATracker:
 
         self.write_gpx_tlr()
 
-        print(f"{i:6d} GGA message{'' if i == 1 else 's'} -> trackpoints from {self._filename.name} to {self._trkfname.name} box: {bb.diameter():.1f} m\n")
+        print(f"{i:6d} GGA message{'' if i == 1 else 's'} -> {tp} trackpoints  {self._filename.name} -> {self._trkfname.name} box: {bb.diameter():.1f} m ~{bb.diameter()/M_PER_NM:6.2f} NM\n")
         return bb
 
     def write_gpx_hdr(self):
@@ -447,6 +477,7 @@ def main(indir, midsuffix, insuffix):
     
     filepaths = sorted(indir.iterdir(), key=lambda p: p.name.lower())
     
+    # Create the list of files to be processed in the order we want
     trips = []
     infiles = []
     for filepath in filepaths:
@@ -454,7 +485,8 @@ def main(indir, midsuffix, insuffix):
             if Path(filepath.stem).suffix == midsuffix:
                 infiles.append(filepath)
     print(f"{len(infiles)} {midsuffix}{insuffix} files to convert to GPX")
-            
+    
+    # Process the files and do calculations
     for i in infiles:
         #print(f" in", i.name)
         inpath = indir / i
@@ -465,12 +497,12 @@ def main(indir, midsuffix, insuffix):
         
         # print(f"Box diameter: {bound_box.diameter():.1f} m", bound_box.report())
         if bound_box.diameter() > 30: # 30 metres
-            trips.append((i.name, bound_box.diameter()))
+            trips.append((i.name, bound_box.diameter(),bound_box.diagonal_R(),bound_box.diagonal_L()))
             
-        
+    # Print summary data in 'trips' for each file (i.e. each day) 
     for t in trips:
-        name, diam = t
-        print(f"{name} box: ~{diam/M_PER_NM:6.2f} NM ")
+        name, diam, diag_R, diag_L = t
+        print(f"{name} box: ~{diam/M_PER_NM:5.1f} NM") # diag.R: {diag_R/M_PER_NM:6.3f} NM diag.L: {diag_L/M_PER_NM:6.3f} NM")
     print(f"Finished all files, max stack used: {stack_max}")
 
 
