@@ -496,7 +496,7 @@ def main(indir, midsuffix, insuffix):
         tkr.close()
         
         # print(f"Box diameter: {bound_box.diameter():.1f} m", bound_box.report())
-        if bound_box.diameter() > 30: # 30 metres
+        if bound_box.diameter() > 0.1 * M_PER_NM : # 0.1 NM in metres
             trips.append((i.name, bound_box.diameter(),bound_box.diagonal_R(),bound_box.diagonal_L()))
             
     # Print summary data in 'trips' for each file (i.e. each day) 
