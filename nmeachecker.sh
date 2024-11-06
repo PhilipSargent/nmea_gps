@@ -15,7 +15,8 @@ threshold_time=$((current_time - (threshold * 60)))
 usual_time=$((current_time - (usual * 60)))
 
 # Loop through files in the directory
-found_updated=0  # Flag to track if any updated file is found
+overdue_updated=0  # Flag to track if any hung updated file is found
+usual_updated=0  # Flag to track if any late updated file is found
 
 dir_root=`ls -pd /root/nmea_data/* | grep "/$"`
 for directory in $dir_root; do
@@ -27,10 +28,11 @@ for directory in $dir_root; do
       if [ -f "$filepath" ]; then
         # Get the file modification time
         file_mtime=$(date -r "$filepath" +%s)
+        file_stamp=$(date -r "$filepath" +"%T %Z")
 
         # Compare with threshold time
         if [ $file_mtime -gt $threshold_time ]; then
-          found_updated=1
+          overdue_updated=1
           updated=$filename
         fi
         # Compare with usual time
@@ -43,12 +45,12 @@ for directory in $dir_root; do
 done
 
 # Handle results
-if [ $found_updated -ne 1 ]; then
+if [ $overdue_updated -ne 1 ]; then
   echo `date` "No files in '$directory' have been updated in the last $threshold minutes."
   # so kill the .py process, wich terminates the .sh script
   # cron will then restart it in 3 minutes
   touch /root/nmea_data/nmealogger-hung.txt
-  echo `date` "Hung: no update in $threshold minutes.  $file_mtime nmeachecker.sh" >> /root/nmea_data/nmealogger_error.txt
+  echo `date` "Hung: no update in $threshold minutes.  $file_stamp nmeachecker.sh" >> /root/nmea_data/nmealogger_error.txt
   pkill -ef "python /root/nmea_gps/nmealogger.py"
   exit 1
 # else
@@ -57,6 +59,6 @@ fi
 
 if [ $usual_updated -ne 1 ]; then
   echo `date` "No files in '$directory' have been updated in the last $usual minutes."
-  echo `date` "Slow: no update in $usual minutes.  $file_mtime nmeachecker.sh" >> /root/nmea_data/nmealogger_error.txt
+  echo `date` "Slow: no update in $usual minutes.  $file_stamp nmeachecker.sh" >> /root/nmea_data/nmealogger_error.txt
 fi
 exit 0
