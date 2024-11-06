@@ -418,6 +418,8 @@ def readstream(stream: socket.socket):
  
     rawdir = parentdir / Path("nmea_rawd") / Path(start.strftime('%Y-%m'))
     rawdir.mkdir(parents=True, exist_ok=True)
+    
+    currentdir = parentdir / Path("nmea_data")
  
     while True:  # when parse errors caused this to restart, this was sensible. But now all exceptions terminate except NewDay.
         msgcount = 0
@@ -430,9 +432,11 @@ def readstream(stream: socket.socket):
             fnstem = newstart.strftime('%Y-%m-%d_%H%M')
             archivefilename = archivedir / (fnstem +".nmea")
             rawfilename = rawdir / (fnstem +".nmea")
+            
+            current_log = currentdir / Path(CURRENT_LOG)
                 
             print(f"Writing\n {archivefilename}\n {rawfilename}", flush=True)
-            with open(CURRENT_LOG, 'wr', buffering=file_bufsize) as fn: 
+            with open(current_log, 'w', buffering=file_bufsize) as fn: 
                 print(f"{fnstem}.nmea", flush=True)
 
             with open(archivefilename, 'ab', buffering=file_bufsize) as af: # ab not wr just in case the filename is unchanged.. 
