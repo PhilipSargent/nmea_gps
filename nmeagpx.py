@@ -162,8 +162,8 @@ class Stack:
             print(f"{last_item}, {last_dat}")
            
         if since > timedelta(minutes=STACK_MINUTES):
-            print(f"Gap detected:{dat - last_dat} h:m:s from {tidy(last_dat)} to {tidy(dat)}  Duration in [{len(self._items)}] stack:{last_dat - self._first} h:m:s ")
-            GAPS.append((f"from {tidy(last_dat)} to {tidy(dat)}  gap: {dat - last_dat} (duration in stack {last_dat - self._first})"))
+            # print(f"Gap detected:{dat - last_dat} h:m:s from {tidy(last_dat)} to {tidy(dat)}  Duration in [{len(self._items)}] stack:{last_dat - self._first} h:m:s ")
+            GAPS.append((f"from {tidy(last_dat)} to {tidy(dat)}  gap: {dat - last_dat} (duration in [{len(self._items)}] stack {last_dat - self._first})"))
             return False
         
         # distance from centroid
