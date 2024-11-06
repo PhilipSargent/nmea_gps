@@ -108,8 +108,8 @@ class Stack:
         full = len(self._items) == self.max_size
         if full:
             self.full_count += 1
-            duration = self.duration()
-            print(f"stack full #{self.full_count}  diameter: {self.diameter():.1f} m  {duration} h:m:s from {self.first_date()}")        
+            duration = self.duration() #).replace("+00:00","")
+            print(f"stack full #{self.full_count}  diameter: {self.diameter():.1f} m  {duration} h:m:s from {self.first_date().strftime('%T %Z')}")        
         return full
 
     def push(self, msg_item):
