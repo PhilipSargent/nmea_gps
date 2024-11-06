@@ -55,6 +55,7 @@ totqk = 0
 HDOP_LIMIT = 3
 MAX_WAIT = 10 * 60 # 10 minutes in seconds
 LONG_ENOUGH = 300000 # Max messages before restart logs
+CURRENT_LOG = "current_log.txt"
 
 
 TZ = ZoneInfo('Europe/Athens')
@@ -426,10 +427,14 @@ def readstream(stream: socket.socket):
 
         try:
             newstart = datetime.now(tz=TZ) # This is timezone time, not UTC which comes from the GPS signal
-            archivefilename = archivedir / (newstart.strftime('%Y-%m-%d_%H%M') +".nmea")
-            rawfilename = rawdir / (newstart.strftime('%Y-%m-%d_%H%M') +".nmea")
+            fnstem = newstart.strftime('%Y-%m-%d_%H%M')
+            archivefilename = archivedir / (fnstem +".nmea")
+            rawfilename = rawdir / (fnstem +".nmea")
                 
             print(f"Writing\n {archivefilename}\n {rawfilename}", flush=True)
+            with open(CURRENT_LOG, 'wr', buffering=file_bufsize) as fn: 
+                print(f"{fnstem}.nmea", flush=True)
+
             with open(archivefilename, 'ab', buffering=file_bufsize) as af: # ab not wr just in case the filename is unchanged.. 
                 with open(rawfilename, 'ab', buffering=file_bufsize) as rawf: # ab not wr just in case the filename is unchanged.. 
                     while True:
