@@ -50,7 +50,7 @@ if [ $overdue_updated -ne 1 ]; then
   # so kill the .py process, wich terminates the .sh script
   # cron will then restart it in 3 minutes
   touch /root/nmea_data/nmealogger-hung.txt
-  echo `date` "Hung: no update in $threshold minutes.  $file_stamp nmeachecker.sh" >> /root/nmea_data/nmealogger_error.txt
+  echo `date` "Hung: no update in $threshold minutes.  $updated $file_stamp nmeachecker.sh" >> /root/nmea_data/nmealogger_error.txt
   pkill -ef "python /root/nmea_gps/nmealogger.py"
   exit 1
 # else
@@ -59,6 +59,6 @@ fi
 
 if [ $usual_updated -ne 1 ]; then
   echo `date` "No files in '$directory' have been updated in the last $usual minutes."
-  echo `date` "Slow: no update in $usual minutes.  $file_stamp nmeachecker.sh" >> /root/nmea_data/nmealogger_error.txt
+  echo `date` "Slow: no update in $usual minutes.  $usual_fn $file_stamp nmeachecker.sh" >> /root/nmea_data/nmealogger_error.txt
 fi
 exit 0
