@@ -38,6 +38,10 @@ M_PER_NM = 1852 # 1929 First International Extraordinary Hydrographic Conference
 JIGGLE = 3.4/5 # anything within this is considered the "same" point. This is the fifth-width of the boat
 STACK_MINUTES = 90 # how long we wait before flushing the stack
 MAXSTACK = 200 # maxium bumber of points to amalgamate even if they are very close
+MIDNIGHT = time(0, 0, 0, 0) # midnight
+NEAR_MIDNIGHT = time(0, 23, 59, 0) # one minute to midnight
+GLITCHES = []
+GAPS = []
 
 XML_HDR = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 
@@ -53,6 +57,10 @@ GPX_NS = " ".join(
 GITHUB_LINK = "https://github.com/semuconsulting/pynmeagps"
 
 stack_max = 0
+
+def tidy(dat):
+    # A datetime object wehere we don't care about the TZ as it is always UTC
+    return str(dat).replace('+00:00','')
 
 def is_in_time_period(startTime, endTime, check_time):
     if startTime < endTime:
@@ -108,9 +116,13 @@ class Stack:
         full = len(self._items) == self.max_size
         if full:
             self.full_count += 1
-            duration = self.duration() #).replace("+00:00","")
+            duration = self.duration() 
             print(f"stack full #{self.full_count}  diameter: {self.diameter():.1f} m  {duration} h:m:s from {self.first_date().strftime('%T %Z')}")        
         return full
+
+    def pop(self):
+        m, d = self._items[-1]
+        return self._items.pop()
 
     def push(self, msg_item):
         msg, dat = msg_item
@@ -146,10 +158,12 @@ class Stack:
         if dat < last_dat:
             # actually this is the clock running into the next day in TIME, but not changing the DATE, 
             # because there hasn't been an RMC to do that..
-            print(f"TIME TRAVEL: '{dat}' < '{last_dat}'\nGap:{dat - last_dat} h:m:s  Duration in [{len(self._items)}] stack:{last_dat - self._first} h:m:s")
+            print(f"TIME TRAVEL: '{tidy(dat)}' < '{tidy(last_dat)}'\nGap:{dat - last_dat} h:m:s  Duration in [{len(self._items)}] stack:{last_dat - self._first} h:m:s")
+            print(f"{last_item}, {last_dat}")
            
         if since > timedelta(minutes=STACK_MINUTES):
-            print(f"Gap:{dat - last_dat} h:m:s from {last_dat} to {dat}  Duration in [{len(self._items)}] stack:{last_dat - self._first} h:m:s ")
+            print(f"Gap detected:{dat - last_dat} h:m:s from {tidy(last_dat)} to {tidy(dat)}  Duration in [{len(self._items)}] stack:{last_dat - self._first} h:m:s ")
+            GAPS.append((f"from {tidy(last_dat)} to {tidy(dat)}  gap: {dat - last_dat} (duration in stack {last_dat - self._first})"))
             return False
         
         # distance from centroid
@@ -306,14 +320,11 @@ class NMEATracker:
             try:
                 d = msg.__dict__
                 if 'date' in d and d['date'] != "": # only RMC, but get it anywhere if it exists
-                    # if self._infile.name == "/home/philip/gps/nmea_data/2024-06/2024-06-06.day.nmea":
-                        # print(f"++ RMC date '{d['date']}'   {msg.msgID} line:{n:6} in {self._infile.name}")
-                    if not self._thisday:
+                   if not self._thisday:
                         self._thisday = d['date']
                         date_updated = True
                         timestamp_updated = msg.time
-                        # print(f"++ Set date as '{self._thisday}' {msg.msgID} line:{n:6}")
-                    else:
+                   else:
                         if self._thisday == d['date']:
                             pass # ignore, same day
                         else:
@@ -332,21 +343,28 @@ class NMEATracker:
                         # skip nmea lines until we get the date
                         # we could use the filename, if that has been set to have the date.. nah.
                         print(f".. Skipping, no date.. {tim}. This should NOT happen.")
-                        continue
+                        continue # ignore this msg and go on to next
                     if msg.time < prev_time:
                         # either bad data or midnight rollover
                         # unfortunately we do see RMC datetime not quite the same as GGA, e.g.000001.00 on the line *before* 235956
-                        # GPRMC,000001.00,A,3706.41595,N,02652.43965,E,0.287,,060624,,,A*7A
-                        # $GPGGA,235956.00,3706.41566,N,02652.43976,E,1,10,0.94,6.6,M,32.1,M,,*50
+                        #   $GPRMC,000001.00,A,3706.41595,N,02652.43965,E,0.287,,060624,,,A*7A
+                        #   $GPGGA,235956.00,3706.41566,N,02652.43976,E,1,10,0.94,6.6,M,32.1,M,,*50
                         # so the new date is set, but then immediately it appears that a midnight has occured.
-                        # solution: re-order RMC sentences into GGA order.. but how?
-                        if not date_updated:
+                        # solution: Detect if the time of the GGA is within 5 seconds of midnight, if so, ignore it.
+                        if date_updated:
+                            self._thisday += timedelta(days=1)
+                            d['date'] = self._thisday
+                            print(f"{Path(self._infile.name).stem} line:{n:6}:\n Midnight rollover  from {prev_time} to {msg.time}  (last done {timestamp_updated}) now: {self._thisday}")
+                        else:
                             if is_in_time_period(prev_time, msg.time, timestamp_updated):
-                                print(f"Midnight NOT rolledover {prev_time} to {msg.time}  (last done {timestamp_updated}) now: {self._thisday} line:{n:6} in {self._infile.name}")
-                            else:
-                                self._thisday += timedelta(days=1)
-                                d['date'] = self._thisday
-                                print(f"Midnight rollover  from {prev_time} to {msg.time}  (last done {timestamp_updated}) now: {self._thisday} line:{n:6} in {self._infile.name}")
+                                if is_in_time_period(NEAR_MIDNIGHT, msg.time, MIDNIGHT):
+                                    # print(f"{Path(self._infile.name).stem} line:{n:6}:\n GLITCH near midnight {prev_time} to {msg.time}  (last done {timestamp_updated}) now: {self._thisday}")
+                                    GLITCHES.append((f"{Path(self._infile.name).stem} line:{n:4}", f"{prev_time}"))
+                                    self._gpsstack.pop() # delete the previous message in the stack as it is out of order
+                                    # Now re-set the 'prev' values to the previous item in the stack, ignoring the glitchy one
+                                    prev_time = MIDNIGHT
+                                else:
+                                    print(f"{Path(self._infile.name).stem} line:{n:4}:\n Midnight NOT rolledover {prev_time} to {msg.time}  (last done {timestamp_updated}) now: {self._thisday} ")
                     dat = datetime.combine(self._thisday, msg.time, timezone.utc) # BUG! midnight rollover does not change day
                     prev_time = msg.time
                     date_updated = False # reset to wait for next RMC update
@@ -359,8 +377,9 @@ class NMEATracker:
                     # don't write immediately, push to stack and write simplified
                     msg_item = (msg, dat)
                     if not self._gpsstack.it_fits(msg_item):
-                        # write out whole stack, simplified
-                        # then re-push item onto a new stack.
+                        # extract the whole stack, as averaged onto the median point,
+                        # push the point onto a clean stack,
+                        # then write out the median as a GPX point.
                         lat, lon, alt, dat, quality, hdop = self._gpsstack.median()
                         self._gpsstack.flush()
                         self._gpsstack.push(msg_item)
@@ -386,7 +405,7 @@ class NMEATracker:
                     i += 1
             except (nme.NMEAMessageError, nme.NMEATypeError, nme.NMEAParseError) as err:
                 print(f"Something went wrong {err}")
-                continue
+                continue # get next msg
 
         self.write_gpx_tlr()
 
@@ -494,7 +513,17 @@ def main(indir, midsuffix, insuffix):
         tkr.open()
         bound_box = tkr.reader()
         tkr.close()
-        
+
+    if GLITCHES:
+        print(f"{len(GLITCHES)} glitches:")
+        for g in GLITCHES:
+            fn, gtext = g
+            print(f"{fn} {gtext}")
+    if GAPS:
+        print(f"{len(GAPS)} gaps:")
+        for g in GAPS:
+            print(g)
+            
         # print(f"Box diameter: {bound_box.diameter():.1f} m", bound_box.report())
         if bound_box.diameter() > 0.1 * M_PER_NM : # 0.1 NM in metres
             trips.append((i.name, bound_box.diameter(),bound_box.diagonal_R(),bound_box.diagonal_L()))
@@ -504,6 +533,8 @@ def main(indir, midsuffix, insuffix):
         name, diam, diag_R, diag_L = t
         print(f"{name} box: ~{diam/M_PER_NM:5.1f} NM") # diag.R: {diag_R/M_PER_NM:6.3f} NM diag.L: {diag_L/M_PER_NM:6.3f} NM")
     print(f"Finished all files, max stack used: {stack_max}")
+    
+
 
 
 if __name__ == "__main__":
