@@ -436,8 +436,8 @@ def readstream(stream: socket.socket):
             current_log = currentdir / Path(CURRENT_LOG)
                 
             print(f"Writing\n {archivefilename}\n {rawfilename}", flush=True)
-            with open(current_log, 'w', buffering=file_bufsize) as fn: 
-                print(f"{fnstem}.nmea", flush=True)
+            with open(current_log, 'w', buffering=file_bufsize) as fnf: 
+                fnf.write(f"{fnstem}.nmea")
 
             with open(archivefilename, 'ab', buffering=file_bufsize) as af: # ab not wr just in case the filename is unchanged.. 
                 with open(rawfilename, 'ab', buffering=file_bufsize) as rawf: # ab not wr just in case the filename is unchanged.. 
