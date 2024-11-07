@@ -40,6 +40,9 @@ STACK_MINUTES = 90 # how long we wait before flushing the stack
 MAXSTACK = 200 # maxium bumber of points to amalgamate even if they are very close
 MIDNIGHT = time(0, 0, 0, 0) # midnight
 NEAR_MIDNIGHT = time(0, 23, 59, 0) # one minute to midnight
+NEAR_DAYLENGTH = timedelta(hours=23) # nearly a whole day
+ONE_MINUTE = timedelta(minutes=1) 
+EIGHT_MINUTES = timedelta(minutes=8) 
 GLITCHES = []
 GAPS = []
 
@@ -67,6 +70,12 @@ def is_in_time_period(startTime, endTime, check_time):
         return startTime <= check_time <= endTime
     else: #Over midnight
         return check_time >= startTime or check_time <= endTime
+
+def time_diff(t1, t2):
+        # cant' different two time objtecs, only datetime objects
+        dateTime1 = datetime.combine(date.today(), t1)
+        dateTime2 = datetime.combine(date.today(), t2)
+        return dateTime1 - dateTime2
         
 def strim(nmealat):
     """Strims off the ..667 or ..333 at the end of the string
@@ -157,7 +166,7 @@ class Stack:
 
         if dat < last_dat:
             # actually this is the clock running into the next day in TIME, but not changing the DATE, 
-            # because there hasn't been an RMC to do that..
+            # because there hasn't been a midnight rollover to fix that
             print(f"TIME TRAVEL: '{tidy(dat)}' < '{tidy(last_dat)}'\nGap:{dat - last_dat} h:m:s  Duration in [{len(self._items)}] stack:{last_dat - self._first} h:m:s")
             print(f"{last_item}, {last_dat}")
            
@@ -303,6 +312,13 @@ class NMEATracker:
     def reader(self, validate=False):
         """
         Reads and parses NMEA message data from stream
+        
+        We have a particular problem dealing with this common glitch
+        where the GGA time is out of synch with the RMC time
+        
+        $GPRMC,000001.00,A,3705.24783,N,02509.11117,E,0.168,,021024,,,A*79
+        $GPGGA,235958.00,3705.24796,N,02509.11108,E,1,11,0.77,15.7,M,32.0,M,,*66
+        $GPGGA,000005.00,3705.24776,N,02509.11127,E,1,11,0.77,16.5,M,32.0,M,,*61
         """
         bb = BoundingBox()
 
@@ -313,38 +329,67 @@ class NMEATracker:
 
         self.write_gpx_hdr()
         #print(self._nmeareader, self._infile)
-        prev_time = time(0, 0, 0, 0) # midnight
+        prev_time = MIDNIGHT
         date_updated = False
+        first_GGA = True
         for _, msg in self._nmeareader:  # invokes iterator method
             n += 1
             try:
                 d = msg.__dict__
                 if 'date' in d and d['date'] != "": # only RMC, but get it anywhere if it exists
-                   if not self._thisday:
+                   first_GGA = True # first GGA after any RMC
+                   # prev_time = msg.time # don't update, we do not use the time of the RMC msg
+                   if not self._thisday: # first line of file usually
                         self._thisday = d['date']
                         date_updated = True
                         timestamp_updated = msg.time
-                   else:
+                        # print(f"++ First date seen '{d['date']}'  ({msg.msgID} line:{n:4} in {Path(self._infile.name).stem}")
+                   else: # later RMCs in the same day, caused by router re-start and concatenated files
                         if self._thisday == d['date']:
-                            pass # ignore, same day
-                        else:
-                            prev = self._thisday
-                            self._thisday = d['date']
-                            print(f"++ New date as '{self._thisday}'  (was {prev}) {msg.msgID} line:{n:6} in {self._infile.name}")
-                            if self._thisday < prev:
-                                print(f"## i.e. clock going backwards ! ")
+                            # ignore, same day
+                            # print(f"++ Same  date seen '{d['date']}'  ({msg.msgID} line:{n:4} in {Path(self._infile.name).stem}")
                             date_updated = True
-                        
+                            timestamp_updated = msg.time
+                        else:
+                            # Use RMC to change to next day? but this is also done by the midnight rollover on GGA, so don't do this
+                            # as the rollover will immediately increment *again* on the next line
+                            prev = self._thisday  
+                            print(f"++ Different date  '{d['date']}'  (was {prev}) {msg.msgID} line:{n:4} in {Path(self._infile.name).stem}")
+                            if d['date'] < prev:
+                                print(f"## Bad midnight rollover, RMC says we are still on previous day.")
+                       
                     
                 
                 if msg.msgID == "GGA":
-                    tim = msg.time
+                    #tim = msg.time
                     if not self._thisday:
                         # skip nmea lines until we get the date
-                        # we could use the filename, if that has been set to have the date.. nah.
-                        print(f".. Skipping, no date.. {tim}. This should NOT happen.")
+                        print(f"{Path(self._infile.name).stem} line:{n:6}:\n.. Skipping, no date.. {msg.time}. This should NOT happen.")
                         continue # ignore this msg and go on to next
+                    if first_GGA:
+                        # skip the first one as the timestamp is usually out of synch
+                        first_GGA = False
+                        if msg.time < prev_time:
+                            print(f".. BACKWD  Skip first GGA {msg.time} after RMC: {prev_time} {time_diff(prev_time, msg.time)} line:{n:4} {Path(self._infile.name).stem}")
+                            continue # ignore this msg and go on to next
+                            
+                        # print(f".. Skip first GGA {msg.time} after RMC: {prev_time} {time_diff(msg.time, prev_time)} {NEAR_DAYLENGTH} line:{n:4} {Path(self._infile.name).stem}")
+                        if time_diff(msg.time, prev_time) > NEAR_DAYLENGTH:
+                            print(f".. TOOBIG Skip first GGA {msg.time} after RMC: {prev_time} {time_diff(msg.time, prev_time)} line:{n:4} {Path(self._infile.name).stem}")
+                            continue # ignore this msg and go on to next
+                        
                     if msg.time < prev_time:
+                        
+                        if time_diff(prev_time, msg.time) < ONE_MINUTE:
+                            print(f" but only by less than a minute, IGNORING")
+                            continue
+                        if time_diff(prev_time, msg.time) < EIGHT_MINUTES:
+                            print(f"{Path(self._infile.name).stem} line:{n:6}:\n Time reversal  from {prev_time} to {msg.time}\n (last update {timestamp_updated}) day: {self._thisday} ")
+                            print(f" but by less than 8 minutes, IGNORING")
+                            continue
+                        print(f"{Path(self._infile.name).stem} line:{n:6}:\n Time REVERSAL  from {prev_time} to {msg.time}\n (last update {timestamp_updated}) day: {self._thisday} ")
+                           
+
                         # either bad data or midnight rollover
                         # unfortunately we do see RMC datetime not quite the same as GGA, e.g.000001.00 on the line *before* 235956
                         #   $GPRMC,000001.00,A,3706.41595,N,02652.43965,E,0.287,,060624,,,A*7A
@@ -356,6 +401,7 @@ class NMEATracker:
                             d['date'] = self._thisday
                             print(f"{Path(self._infile.name).stem} line:{n:6}:\n Midnight rollover  from {prev_time} to {msg.time}  (last done {timestamp_updated}) now: {self._thisday}")
                         else:
+                            # GLITCH handling not needed now that we refuse to store the first GGA msg after a RMC if it is suspect
                             if is_in_time_period(prev_time, msg.time, timestamp_updated):
                                 if is_in_time_period(NEAR_MIDNIGHT, msg.time, MIDNIGHT):
                                     # print(f"{Path(self._infile.name).stem} line:{n:6}:\n GLITCH near midnight {prev_time} to {msg.time}  (last done {timestamp_updated}) now: {self._thisday}")
@@ -367,9 +413,7 @@ class NMEATracker:
                                     print(f"{Path(self._infile.name).stem} line:{n:4}:\n Midnight NOT rolledover {prev_time} to {msg.time}  (last done {timestamp_updated}) now: {self._thisday} ")
                     dat = datetime.combine(self._thisday, msg.time, timezone.utc) # BUG! midnight rollover does not change day
                     prev_time = msg.time
-                    date_updated = False # reset to wait for next RMC update
-
-                       
+ 
                     lat = strim(msg.lat)
                     lon = strim(msg.lon)
                     bb.update(lat, lon) # for the whole file, not just the stack
