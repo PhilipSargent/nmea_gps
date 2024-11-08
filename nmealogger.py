@@ -220,9 +220,9 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                 nmr_delays = 0
                 runcount +=1
                 
-                if runcount == 1:
-                    # throw away the first sentence as it is from the previous run, not cleaned out by exception.
-                    continue
+                # if runcount == 1:
+                    # # throw away the first sentence as it is from the previous run, not cleaned out by exception.
+                    # continue
  
                 if msgcount > LONG_ENOUGH - 1:
                     raise NewLogs
