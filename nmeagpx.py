@@ -20,8 +20,6 @@ https://github.com/semuconsulting/pynmeagps
     @author: semuadmin
 """
 
-# pylint: disable=consider-using-with
-
 import os, sys
 #import math
 from datetime import datetime, date, timezone, timedelta, time
@@ -73,7 +71,7 @@ def is_in_time_period(startTime, endTime, check_time):
         return check_time >= startTime or check_time <= endTime
 
 def time_diff(t1, t2):
-        # cant' different two time objtecs, only datetime objects
+        # cant' different two time objects, only datetime objects
         dateTime1 = datetime.combine(date.today(), t1)
         dateTime2 = datetime.combine(date.today(), t2)
         return dateTime1 - dateTime2
@@ -95,7 +93,30 @@ def stash_msg(n,msg):
     # don't process this msg, discard it. But keep a copy here for debugging
     msg_stash.append((n,msg))
     # print(f"-- STASH {n} {msg.msgID}  {msg.time}")
+
+def get_header(filename):
+    date = datetime.now(timezone.utc).replace(microsecond=0).isoformat() # not interested in fractions of a second
+    gpxtrack = (
+        XML_HDR + "\n<gpx " + GPX_NS + ">"
+        f"<metadata>"
+        f'<link href="{GITHUB_LINK}"><text>pynmeagps</text></link><time>{date}</time>'
+        "</metadata>\n"
+    )
+    return gpxtrack
     
+def get_trkhdr(filename):
+    gpx = (f"<trk><name>GPX track from NMEA log {filename}</name>\n"
+        f" <trkseg>\n"
+        # f"<name>{filename}-SEG1</name>\n" # subfields are not legal for trkseg
+        )
+    return gpx
+
+def get_trktlr():
+    return " </trkseg>\n</trk>\n"
+
+def get_gpxtlr():
+    return "</gpx>"
+           
 class Stack:
     """
     A simple stack implementation with a maximum size.
@@ -279,7 +300,7 @@ class NMEATracker:
     NMEATracker class.
     """
 
-    def __init__(self, infile, outdir):
+    def __init__(self, infile, outdir, month_file_id):
         """
         Constructor.
         """
@@ -289,6 +310,7 @@ class NMEATracker:
         self._infile = None
         self._trkfname = None
         self._trkfile = None
+        self._monthfile = month_file_id
         self._nmeareader = None
         self._connected = False
         self._thisday = None
@@ -466,20 +488,12 @@ class NMEATracker:
         """
         timestamp = strftime("%Y-%m-%d_%H%M%S")
         self._trkfname = Path(self._outdir) / (Path(self._filename).stem + ".gpx")
-        # print(f"Writing to '{self._trkfname}'")
         self._trkfile = open(self._trkfname, "w", encoding="utf-8")
 
-        date = datetime.now().isoformat() + "EEST" # this is INCORRECT ! We should use UTC timezone. FIX THIS to'Z'
-        gpxtrack = (
-            XML_HDR + "<gpx " + GPX_NS + ">"
-            f"<metadata>"
-            f'<link href="{GITHUB_LINK}"><text>pynmeagps</text></link><time>{date}</time>'
-            "</metadata>\n"
-            f"<trk><name>GPX track from NMEA log {self._filename}</name>\n <trkseg><name>{self._filename}-SEG1</name>\n"
-        )
+        self._trkfile.write(get_header(self._filename))
+        self._trkfile.write(get_trkhdr(self._filename))
 
-        self._trkfile.write(gpxtrack)
-
+        
     def write_gpx_trkpnt(self, lat: float, lon: float, **kwargs):
         """
         Write GPX track point from NAV-PVT message content
@@ -517,14 +531,14 @@ class NMEATracker:
         trkpnt += "</trkpt>\n"
 
         self._trkfile.write(trkpnt)
+        self._monthfile.write(trkpnt)
 
     def write_gpx_tlr(self):
         """
         Write GPX track trailer tags and close file
-        """
-
-        gpxtrack = " </trkseg>\n</trk>\n</gpx>"
-        self._trkfile.write(gpxtrack)
+        """    
+        self._trkfile.write(get_trktlr())
+        self._trkfile.write(get_gpxtlr())
         self._trkfile.close()
 
 
@@ -534,6 +548,7 @@ def main(indir, midsuffix, insuffix):
     """
     global stack_max
     global msg_stash
+    global month_gpx
 
     indir = Path(indir)
     if not indir.is_dir():
@@ -542,7 +557,7 @@ def main(indir, midsuffix, insuffix):
 
     outdir = indir
     print(f"NMEA datalog to GPX file converter ('{insuffix}' files in {indir})")
-    
+
     filepaths = sorted(indir.iterdir(), key=lambda p: p.name.lower())
     
     # Create the list of files to be processed in the order we want
@@ -554,26 +569,38 @@ def main(indir, midsuffix, insuffix):
                 infiles.append(filepath)
     print(f"{len(infiles)} {midsuffix}{insuffix} files to convert to GPX")
     
-    # Process the files and do calculations
-    for i in infiles:
-        #print(f" in", i.name)
-        msg_stash = []
-        inpath = indir / i
-        tkr = NMEATracker(inpath, outdir)
-        tkr.open()
-        bound_box = tkr.reader()
-        tkr.close()
+    month_gpx = f"{indir}.mnth.gpx"
+    month_file = Path(indir) / month_gpx
+    print(f"Consolidate into {month_file}")
+    with open(month_file, "w", encoding="utf-8") as mnf: 
+        mnf.write(get_header(f"{indir}/"))
         
-        if bound_box.diameter() > 0.1 * M_PER_NM : # 0.1 NM in metres
-            trips.append((i.name, bound_box.diameter(),bound_box.diagonal_R(),bound_box.diagonal_L(),len(msg_stash)))
+        # Process the files and do calculations
+        for i in infiles:
+            #print(f" in", i.name)
+            msg_stash = []
+            inpath = indir / i
             
-        if msg_stash:
-            print(f"{len(msg_stash)} discarded NMEA sentences")
-            for n, m in msg_stash:
-                # print(n, m)    
-                pass
-        print("")
+            mnf.write(get_trkhdr(inpath))
 
+            tkr = NMEATracker(inpath, outdir, mnf)
+            tkr.open()
+            bound_box = tkr.reader()
+            tkr.close()
+            mnf.write(get_trktlr())
+            
+            if bound_box.diameter() > 0.1 * M_PER_NM : # 0.1 NM in metres
+                trips.append((i.name, bound_box.diameter(),bound_box.diagonal_R(),bound_box.diagonal_L(),len(msg_stash)))
+                
+            if msg_stash:
+                print(f"{len(msg_stash)} discarded NMEA sentences")
+                for n, m in msg_stash:
+                    # print(n, m)    
+                    pass
+            print("")
+            
+        mnf.write(get_gpxtlr())
+ 
     if GLITCHES:
         print(f"{len(GLITCHES)} glitches:")
         for g in GLITCHES:
