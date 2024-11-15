@@ -1,2 +1,3 @@
-# nmea_gps
-Various bits of code to get around bugs in Navionics app support of UDP and to archive my GPS tracks on my boat. 
+# nmea
+Various bits of code to archive my GPS tracks on my boat. 
+Also some fragments trying to get around Navionics dreadful support for external GNSS feed.
