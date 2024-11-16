@@ -112,10 +112,8 @@ def get_trkhdr(filename):
         )
     return gpx
 
-def get_trkseghdr(filename):
-    gpx = (f" <trkseg>\n"
-         )
-    return gpx
+def get_trkseg():
+    return f" </trkseg>\n <trkseg>\n"
     
 def get_trktlr():
     return " </trkseg>\n</trk>\n"
@@ -347,29 +345,36 @@ class NMEATracker:
         # extract the whole stack, as averaged onto the median point,
         # push the point onto a clean stack,
         # then write out the median as a GPX point.
-        lat, lon, alt, dat, quality, hdop = self._gpsstack.median()
+        try:
+            lat, lon, alt, dat, quality, hdop = self._gpsstack.median()
+            
+          
+            datstr = dat.isoformat(sep="T",timespec='auto')
+            datstr = dat.strftime('%Y-%m-%dT%H:%M:%S') # no TZ as it must always be UTC
+            if quality == 1:
+                fix = "3d"
+            elif msg.quality == 2:
+                fix = "2d"
+            else:
+                fix = "none"
+             
+            self.write_gpx_trkpnt(
+                lat,
+                lon,
+                ele=alt,
+                time=datstr,
+                fix=fix,
+                hdop=hdop,
+            )
+        except IndexError:
+            # print(f".. Attempting to get median of empty stack {msg_item} ")
+            pass
+
+             
         self._gpsstack.flush()
         self._gpsstack.push(msg_item)
       
-        datstr = dat.isoformat(sep="T",timespec='auto')
-        datstr = dat.strftime('%Y-%m-%dT%H:%M:%S') # no TZ as it must always be UTC
-        if quality == 1:
-            fix = "3d"
-        elif msg.quality == 2:
-            fix = "2d"
-        else:
-            fix = "none"
-         
-        self.write_gpx_trkpnt(
-            lat,
-            lon,
-            ele=alt,
-            time=datstr,
-            fix=fix,
-            hdop=hdop,
-        )
-        
-    def reader(self, validate=False):
+    def reader(self, month_filehandle, validate=False):
         """
         Reads and parses NMEA message data from stream
         
@@ -446,7 +451,7 @@ class NMEATracker:
                             print(f" Backwards, but by less than 8 minutes,     IGNORING {Path(self._infile.name).stem} line:{n:3}")
                             stash_msg(n,msg)
                             continue
-                        print(f"{Path(self._infile.name).stem} line:{n:6}:\n Time REVERSAL  from {prev_time} to {msg.time}\n (last RMC {timestamp_updated}) day: {self._thisday} ")
+                        print(f"{Path(self._infile.name).stem} line:{n:6}:\n#### Time REVERSAL  from {prev_time} to {msg.time}\n (last RMC {timestamp_updated}) day: {self._thisday} ")
                            
                         # either bad data or midnight rollover
                         # unfortunately we do see RMC datetime not quite the same as GGA, e.g.000001.00 on the line *before* 235956
@@ -469,21 +474,25 @@ class NMEATracker:
                                 else:
                                     print(f"{Path(self._infile.name).stem} line:{n:4}:\n Midnight NOT rolledover {prev_time} to {msg.time}  (last done {timestamp_updated}) now: {self._thisday} ")
                             
-                    if time_diff(msg.time, prev_time) > ONE_HOUR:
-                        print(f".. Gap, start new <trkseg> {time_diff(msg.time, prev_time)} line:{n:4} {Path(self._infile.name).stem}")
 
                     dat = datetime.combine(self._thisday, msg.time, timezone.utc)
-                    prev_time = msg.time
  
                     lat = strim(msg.lat)
                     lon = strim(msg.lon)
                     bb.update(lat, lon) # for the whole file, not just the stack
 
-                    # don't write immediately, push to stack and write simplified
                     msg_item = (msg, dat)
-                    if not self._gpsstack.it_fits(msg_item):
+                    if time_diff(msg.time, prev_time) > ONE_HOUR: 
+                        print(f".. Gap, start new <trkseg> {time_diff(msg.time, prev_time)} line:{n:4} {Path(self._infile.name).stem}")
                         self.restart_stack(msg_item)
+                        self._trkfile.write(get_trkseg())
+                        month_filehandle.write(get_trkseg())
                         tp += 1
+                    else:    
+                        if not self._gpsstack.it_fits(msg_item):
+                            self.restart_stack(msg_item)
+                            tp += 1
+                    prev_time = msg.time
                     i += 1
             except (nme.NMEAMessageError, nme.NMEATypeError, nme.NMEAParseError) as err:
                 print(f"Something went wrong {err}")
@@ -597,7 +606,7 @@ def main(indir, midsuffix, insuffix):
 
             tkr = NMEATracker(inpath, outdir, mnf)
             tkr.open()
-            bound_box = tkr.reader()
+            bound_box = tkr.reader(mnf)
             tkr.close()
             mnf.write(get_trktlr())
             
