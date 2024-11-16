@@ -41,6 +41,7 @@ NEAR_MIDNIGHT = time(0, 23, 59, 0) # one minute to midnight
 NEAR_DAYLENGTH = timedelta(hours=23) # nearly a whole day
 ONE_MINUTE = timedelta(minutes=1) 
 EIGHT_MINUTES = timedelta(minutes=8) 
+ONE_HOUR = timedelta(hours=1) 
 GLITCHES = []
 GAPS = []
 msg_stash = []
@@ -111,6 +112,11 @@ def get_trkhdr(filename):
         )
     return gpx
 
+def get_trkseghdr(filename):
+    gpx = (f" <trkseg>\n"
+         )
+    return gpx
+    
 def get_trktlr():
     return " </trkseg>\n</trk>\n"
 
@@ -337,6 +343,32 @@ class NMEATracker:
         if self._connected and self._infile:
             self._infile.close()
 
+    def restart_stack(self, msg_item):
+        # extract the whole stack, as averaged onto the median point,
+        # push the point onto a clean stack,
+        # then write out the median as a GPX point.
+        lat, lon, alt, dat, quality, hdop = self._gpsstack.median()
+        self._gpsstack.flush()
+        self._gpsstack.push(msg_item)
+      
+        datstr = dat.isoformat(sep="T",timespec='auto')
+        datstr = dat.strftime('%Y-%m-%dT%H:%M:%S') # no TZ as it must always be UTC
+        if quality == 1:
+            fix = "3d"
+        elif msg.quality == 2:
+            fix = "2d"
+        else:
+            fix = "none"
+         
+        self.write_gpx_trkpnt(
+            lat,
+            lon,
+            ele=alt,
+            time=datstr,
+            fix=fix,
+            hdop=hdop,
+        )
+        
     def reader(self, validate=False):
         """
         Reads and parses NMEA message data from stream
@@ -400,7 +432,6 @@ class NMEATracker:
                             stash_msg(n,msg)
                             continue # ignore this msg and go on to next
                             
-                        # print(f".. Skip first GGA {msg.time} after RMC: {prev_time} {time_diff(msg.time, prev_time)} {NEAR_DAYLENGTH} line:{n:4} {Path(self._infile.name).stem}")
                         if time_diff(msg.time, prev_time) > NEAR_DAYLENGTH:
                             print(f".. FOREWD Skip first GGA {msg.time} after RMC: {prev_time} {time_diff(msg.time, prev_time)} line:{n:4} {Path(self._infile.name).stem}")
                             stash_msg(n,msg)
@@ -437,7 +468,11 @@ class NMEATracker:
                                     prev_time = MIDNIGHT
                                 else:
                                     print(f"{Path(self._infile.name).stem} line:{n:4}:\n Midnight NOT rolledover {prev_time} to {msg.time}  (last done {timestamp_updated}) now: {self._thisday} ")
-                    dat = datetime.combine(self._thisday, msg.time, timezone.utc) # BUG! midnight rollover does not change day
+                            
+                    if time_diff(msg.time, prev_time) > ONE_HOUR:
+                        print(f".. Gap, start new <trkseg> {time_diff(msg.time, prev_time)} line:{n:4} {Path(self._infile.name).stem}")
+
+                    dat = datetime.combine(self._thisday, msg.time, timezone.utc)
                     prev_time = msg.time
  
                     lat = strim(msg.lat)
@@ -447,30 +482,7 @@ class NMEATracker:
                     # don't write immediately, push to stack and write simplified
                     msg_item = (msg, dat)
                     if not self._gpsstack.it_fits(msg_item):
-                        # extract the whole stack, as averaged onto the median point,
-                        # push the point onto a clean stack,
-                        # then write out the median as a GPX point.
-                        lat, lon, alt, dat, quality, hdop = self._gpsstack.median()
-                        self._gpsstack.flush()
-                        self._gpsstack.push(msg_item)
-                      
-                        datstr = dat.isoformat(sep="T",timespec='auto')
-                        datstr = dat.strftime('%Y-%m-%dT%H:%M:%S') # no TZ as it must always be UTC
-                        if quality == 1:
-                            fix = "3d"
-                        elif msg.quality == 2:
-                            fix = "2d"
-                        else:
-                            fix = "none"
-                         
-                        self.write_gpx_trkpnt(
-                            lat,
-                            lon,
-                            ele=alt,
-                            time=datstr,
-                            fix=fix,
-                            hdop=hdop,
-                        )
+                        self.restart_stack(msg_item)
                         tp += 1
                     i += 1
             except (nme.NMEAMessageError, nme.NMEATypeError, nme.NMEAParseError) as err:
