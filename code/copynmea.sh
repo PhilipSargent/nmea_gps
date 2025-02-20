@@ -10,7 +10,7 @@ ssh-add /root/.ssh/id_papaya
 cd /root/nmea_data
 # wc /root/nmea_data/*/*.nmea
 
-touch nmealogger_rsynced.txt
+touch nmealogger_rsync-start.txt
 
 # this is good for 2024 to 2099
 rsync -avz -e "ssh -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data
@@ -28,3 +28,5 @@ echo nmea data copy ran ok.
 # wget https://hc-ping.com/9cac10d3-757d-4ff3-96cc-e7714825e35f -T 10 -t 5 -O /dev/null
 wget https://hc-ping.com/9cac10d3-757d-4ff3-96cc-e7714825e35f -T 10 -O /dev/null
 echo healthchecks.io GET ran ok
+
+touch nmealogger_rsync-end.txt
