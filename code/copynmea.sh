@@ -1,5 +1,5 @@
 #!/bin/sh 
-# updated 18 Sept. 2024
+# updated 20 Feb.2025
 # copies to /home/nmea not to /root
 # started by crontab, every 7 minutes
 pkill ssh-agent
@@ -14,6 +14,7 @@ touch nmealogger_rsynced.txt
 
 # this is good for 2024 to 2099
 rsync -avz -e "ssh -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data
+rsync -avz -e "ssh -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_rawd/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_rawd
 #pkill "ssh-agent -s"
 
 # reverse copy from server to laptop:
