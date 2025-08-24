@@ -13,8 +13,10 @@ cd /root/nmea_data
 touch nmealogger_rsync-start.txt
 
 # this is good for 2024 to 2099
-rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data >>nmealogger_rsync-ok.txt 2>>nmealogger_rsync-ok.txt
-rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_rawd/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_rawd >>nmealogger_rsync-ok.txt 2>>nmealogger_rsync-ok.txt
+echo "rsync /root/nmea_data/ START" >>nmealogger_rsync-ok.txt
+rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data >>nmealogger_rsync-ok.txt 2>>nmealogger_rsync-error.txt
+echo "rsync /root/nmea_rawd/ START" >>nmealogger_rsync-ok.txt
+rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_rawd/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_rawd >>nmealogger_rsync-ok.txt 2>>nmealogger_rsync-error.txt
 #pkill "ssh-agent -s"
 
 # reverse copy from server to laptop:
