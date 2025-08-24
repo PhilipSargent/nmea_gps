@@ -382,10 +382,13 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
             # print(f"{datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M %Z')} Parse EXCEPTION in parsestream\n {e}", flush=True)
             # if 'raw' in locals(): # this is probably not the correct one for this error!
                 # print(f"raw:{raw}", flush=True)
-            if parsed_data.msgID not in msg_by_id:
-                msg_by_id[parsed_data.msgID] = 0
-            msg_by_id[parsed_data.msgID] += 1
-            msgparse += 1
+            if 'parsed_data' in locals():
+                if parsed_data.msgID not in msg_by_id:
+                    msg_by_id[parsed_data.msgID] = 0
+                msg_by_id[parsed_data.msgID] += 1
+                msgparse += 1
+            else:
+                print(f"NMEAParseError exception: {e}")
             # clears exception so calling routine just continues its while True loop
             pre_date_stack.flush()
 
