@@ -214,9 +214,9 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
     # print(f"== Restarted parsestream")
     
     while True: # to cope with parse exception breaking the infinite generator
-        nmr_delays = 0 # to cope with exception message
+        nmr_delays = -200 # to cope with immediate crash in for loop
         try:
-            # nmr_delays = 0 # this caused crashes? Or do I just need to rebiit router??
+            nmr_delays = -100 # this caused crashes? Or do I just need to reboot router??
             for (raw, parsed_data) in nmr: # nmr is an infinite iterator - or is meant to be !
                 nmr_delays = 0
                 runcount +=1
