@@ -2,7 +2,8 @@ import argparse
 import os
 import sys
 import xml.etree.ElementTree as ET
-import math # Required for square root calculation
+import math
+from datetime import datetime # Added datetime for time parsing and calculation
 
 # GPX Namespace definition (standard for GPX 1.1 files)
 GPX_NS = {'gpx': 'http://www.topografix.com/GPX/1/1'}
@@ -105,6 +106,10 @@ def analyze_gpx_file(gpx_path):
             ele_data = []
             omissions_count = 0
             
+            # Variables for time calculation
+            first_valid_time_str = None
+            last_valid_time_str = None
+            
             # Iterate through all track points
             for pt in trkseg.findall('gpx:trkpt', GPX_NS):
                 try:
@@ -112,7 +117,10 @@ def analyze_gpx_file(gpx_path):
                     lat = float(pt.attrib.get('lat'))
                     lon = float(pt.attrib.get('lon'))
 
-                    # 2. Extract and check HDOP (Horizontal Dilution of Precision)
+                    # 2. Extract Time
+                    time_text = get_xml_element_text(pt, 'gpx:time', GPX_NS)
+
+                    # 3. Extract and check HDOP (Horizontal Dilution of Precision)
                     hdop_text = get_xml_element_text(pt, 'gpx:hdop', GPX_NS)
                     hdop = float(hdop_text) if hdop_text else 0.0 # Assume 0 if hdop tag is missing
 
@@ -120,8 +128,18 @@ def analyze_gpx_file(gpx_path):
                     if hdop > 4.0:
                         omissions_count += 1
                         continue
+                        
+                    # --- If we reach here, the point is VALID ---
+                    
+                    # Capture the first valid time string
+                    if first_valid_time_str is None and time_text is not None:
+                        first_valid_time_str = time_text
+                    
+                    # Always capture the last valid time string
+                    if time_text is not None:
+                        last_valid_time_str = time_text
 
-                    # 3. Extract Elevation (Altitude)
+                    # 4. Extract Elevation (Altitude)
                     ele_text = get_xml_element_text(pt, 'gpx:ele', GPX_NS)
                     
                     # Ensure elevation exists before trying to convert/collect
@@ -143,6 +161,44 @@ def analyze_gpx_file(gpx_path):
             total_points = len(lat_data)
             
             print(f"  [ SEGMENT {seg_idx} ]")
+            
+            # --- TIME AND DURATION REPORTING (FIXED PARSING) ---
+            start_time_report = "N/A (No valid time found)"
+            duration_report = "N/A"
+            
+            if first_valid_time_str and last_valid_time_str:
+                # GPX standard time format is YYYY-MM-DDTHH:MM:SS[Z]. 
+                # We use the format without the timezone designator (%z) to handle missing 'Z'.
+                try:
+                    # NOTE: We assume the time is UTC, as is standard for GPX files.
+                    time_format = '%Y-%m-%dT%H:%M:%S'
+                    
+                    # Remove the 'Z' if present, then parse the simple format.
+                    first_dt = datetime.strptime(first_valid_time_str.replace('Z', ''), time_format)
+                    last_dt = datetime.strptime(last_valid_time_str.replace('Z', ''), time_format)
+                    
+                    # Calculate duration (timedelta)
+                    segment_duration = last_dt - first_dt
+                    
+                    # Prepare reports
+                    # We print the parsed time but explicitly indicate it is UTC.
+                    start_time_report = first_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+                    
+                    # Format duration nicely: "X hours, Y minutes, Z seconds"
+                    total_seconds = int(segment_duration.total_seconds())
+                    hours, remainder = divmod(total_seconds, 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    duration_report = f"{hours}h {minutes}m {seconds}s"
+                    
+                except ValueError:
+                    # Handle cases where the time string is malformed or not the expected format
+                    pass
+            
+            print(f"    Start Time (First Valid Point): {start_time_report}")
+            print(f"    Segment Duration: {duration_report}")
+            
+            # --- Continue with existing reporting ---
+            
             print(f"    Points Analyzed (HDOP ≤ 4.0): {total_points}")
             print(f"    Points Omitted (HDOP > 4.0): {omissions_count}")
             
@@ -173,15 +229,15 @@ def analyze_gpx_file(gpx_path):
 
                 print("    --- Statistics ---")
                 
-                # Report Latitude (CORRECTED SYNTAX)
+                # Report Latitude 
                 print(f"      Latitude (lat): Mean={mean_lat:{lat_lon_format}}, StdDev={stddev_lat:{lat_lon_format}}")
                 print(f"        (Mean ± 2 StdDev): {lat_ci_low:{lat_lon_format}} to {lat_ci_high:{lat_lon_format}}")
                 
-                # Report Longitude (CORRECTED SYNTAX)
+                # Report Longitude 
                 print(f"      Longitude (lon): Mean={mean_lon:{lat_lon_format}}, StdDev={stddev_lon:{lat_lon_format}}")
                 print(f"        (Mean ± 2 StdDev): {lon_ci_low:{lat_lon_format}} to {lon_ci_high:{lat_lon_format}}")
 
-                # Report Altitude (CORRECTED SYNTAX)
+                # Report Altitude 
                 print(f"      Altitude (ele): Mean={mean_ele:{ele_format}} m, StdDev={stddev_ele:{ele_format}} m")
                 print(f"        (Mean ± 2 StdDev): {ele_ci_low:{ele_format}} m to {ele_ci_high:{ele_format}} m")
             else:
