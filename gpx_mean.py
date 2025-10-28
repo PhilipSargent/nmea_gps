@@ -13,7 +13,7 @@ GPX_NS = {'gpx': 'http://www.topografix.com/GPX/1/1'}
 METERS_PER_DEGREE_AT_EQUATOR = 111320.0 
 
 # --- UTILITY FUNCTION: DEGREE TO METER CONVERSION ---
-def convert_degrees_to_meters(degrees, mean_lat):
+def convert_degrees_to_meters(degrees_lat, degrees_lon, mean_lat):
     """
     Converts a difference in degrees (e.g., 2 * StdDev) into meters.
 
@@ -23,13 +23,15 @@ def convert_degrees_to_meters(degrees, mean_lat):
 
     Returns:
         tuple: (meters_north_south, meters_east_west)
+    
+    Manually fixed to use separate lat/long inputs. Philip.
     """
     # Latitude difference (North/South) is relatively constant
-    meters_lat = degrees * METERS_PER_DEGREE_AT_EQUATOR
+    meters_lat = degrees_lat * METERS_PER_DEGREE_AT_EQUATOR
     
     # Longitude difference (East/West) is scaled by the cosine of the latitude
     # Mean lat must be converted to radians for math.cos
-    meters_lon = degrees * METERS_PER_DEGREE_AT_EQUATOR * math.cos(math.radians(mean_lat))
+    meters_lon = degrees_lon * METERS_PER_DEGREE_AT_EQUATOR * math.cos(math.radians(mean_lat))
     
     return meters_lat, meters_lon
 # ---------------------------------------------------
@@ -257,7 +259,7 @@ def analyze_gpx_file(gpx_path):
                 two_stddev_lon_deg = 2 * stddev_lon
 
                 # NEW: Convert 2 StdDev ranges to meters using the mean latitude
-                two_stddev_lat_m, two_stddev_lon_m = convert_degrees_to_meters(two_stddev_lat_deg, mean_lat)
+                two_stddev_lat_m, two_stddev_lon_m = convert_degrees_to_meters(two_stddev_lat_deg, two_stddev_lon_deg, mean_lat)
 
                 print("    --- Statistics ---")
                 
