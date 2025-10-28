@@ -8,6 +8,32 @@ from datetime import datetime # Added datetime for time parsing and calculation
 # GPX Namespace definition (standard for GPX 1.1 files)
 GPX_NS = {'gpx': 'http://www.topografix.com/GPX/1/1'}
 
+# Earth constant: Approximate meters per degree of latitude at the equator (WGS84 standard)
+# Used for calculating the meter equivalent of degree variance.
+METERS_PER_DEGREE_AT_EQUATOR = 111320.0 
+
+# --- UTILITY FUNCTION: DEGREE TO METER CONVERSION ---
+def convert_degrees_to_meters(degrees, mean_lat):
+    """
+    Converts a difference in degrees (e.g., 2 * StdDev) into meters.
+
+    Args:
+        degrees (float): The degree difference (e.g., 2 * StdDev).
+        mean_lat (float): The mean latitude of the segment.
+
+    Returns:
+        tuple: (meters_north_south, meters_east_west)
+    """
+    # Latitude difference (North/South) is relatively constant
+    meters_lat = degrees * METERS_PER_DEGREE_AT_EQUATOR
+    
+    # Longitude difference (East/West) is scaled by the cosine of the latitude
+    # Mean lat must be converted to radians for math.cos
+    meters_lon = degrees * METERS_PER_DEGREE_AT_EQUATOR * math.cos(math.radians(mean_lat))
+    
+    return meters_lat, meters_lon
+# ---------------------------------------------------
+
 # --- DYNAMIC PRECISION FUNCTION ---
 def get_precision_and_format(stddev, min_decimals=2):
     """
@@ -162,7 +188,7 @@ def analyze_gpx_file(gpx_path):
             
             print(f"  [ SEGMENT {seg_idx} ]")
             
-            # --- TIME AND DURATION REPORTING (FIXED PARSING) ---
+            # --- TIME AND DURATION REPORTING ---
             start_time_report = "N/A (No valid time found)"
             duration_report = "N/A"
             
@@ -226,16 +252,24 @@ def analyze_gpx_file(gpx_path):
                 ele_ci_low = mean_ele - 2 * stddev_ele
                 ele_ci_high = mean_ele + 2 * stddev_ele
 
+                # NEW: Calculate 2 StdDev range in degrees
+                two_stddev_lat_deg = 2 * stddev_lat
+                two_stddev_lon_deg = 2 * stddev_lon
+
+                # NEW: Convert 2 StdDev ranges to meters using the mean latitude
+                two_stddev_lat_m, two_stddev_lon_m = convert_degrees_to_meters(two_stddev_lat_deg, mean_lat)
 
                 print("    --- Statistics ---")
                 
                 # Report Latitude 
                 print(f"      Latitude (lat): Mean={mean_lat:{lat_lon_format}}, StdDev={stddev_lat:{lat_lon_format}}")
-                print(f"        (Mean ± 2 StdDev): {lat_ci_low:{lat_lon_format}} to {lat_ci_high:{lat_lon_format}}")
+                print(f"        (Mean ± 2 StdDev Degrees): {lat_ci_low:{lat_lon_format}} to {lat_ci_high:{lat_lon_format}}")
+                print(f"        (Mean ± 2 StdDev Meters N/S): ± {two_stddev_lat_m:.2f} m")
                 
                 # Report Longitude 
                 print(f"      Longitude (lon): Mean={mean_lon:{lat_lon_format}}, StdDev={stddev_lon:{lat_lon_format}}")
-                print(f"        (Mean ± 2 StdDev): {lon_ci_low:{lat_lon_format}} to {lon_ci_high:{lat_lon_format}}")
+                print(f"        (Mean ± 2 StdDev Degrees): {lon_ci_low:{lat_lon_format}} to {lon_ci_high:{lat_lon_format}}")
+                print(f"        (Mean ± 2 StdDev Meters E/W): ± {two_stddev_lon_m:.2f} m (at mean lat)")
 
                 # Report Altitude 
                 print(f"      Altitude (ele): Mean={mean_ele:{ele_format}} m, StdDev={stddev_ele:{ele_format}} m")
