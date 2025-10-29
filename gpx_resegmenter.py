@@ -39,10 +39,51 @@ def parse_gpx_time(time_str):
     if not time_str:
         return None
     # Use the format that works for timestamps with or without the trailing 'Z'
+    # .replace('Z', '') handles the 'Z'. We try to handle milliseconds/microseconds
+    # often present in timestamps (e.g., '...:SS.mmm')
+    time_str_clean = time_str.replace('Z', '')
+    
     try:
-        return datetime.strptime(time_str.replace('Z', ''), '%Y-%m-%dT%H:%M:%S')
+        # Try parsing with microseconds
+        return datetime.strptime(time_str_clean, '%Y-%m-%dT%H:%M:%S.%f')
     except ValueError:
-        return None
+        try:
+            # Fallback to parsing without microseconds
+            return datetime.strptime(time_str_clean, '%Y-%m-%dT%H:%M:%S')
+        except ValueError:
+            return None
+
+def reformat_point_timestamp(point):
+    """
+    Finds the <time> element within a trkpt, reformats the timestamp string,
+    and replaces the element to ensure no lingering Z/timezone artifacts remain 
+    before the final XML write.
+    """
+    # Use a list comprehension to safely find the time element and its index
+    # Note: `point` is a list-like object of children elements
+    time_info = [(i, child) for i, child in enumerate(point) if child.tag == '{http://www.topografix.com/GPX/1/1}time']
+    
+    if time_info:
+        index, time_element = time_info[0]
+        
+        if time_element.text:
+            # 1. Use the existing parse function to get the datetime object
+            dt_obj = parse_gpx_time(time_element.text)
+            
+            if dt_obj:
+                # 2. Get the new formatted string (explicitly no Z/offset)
+                new_time_str = dt_obj.strftime('%Y-%m-%dT%H:%M:%S')
+                
+                # 3. Create a brand new <time> element
+                new_time_element = ET.Element('{http://www.topografix.com/GPX/1/1}time')
+                new_time_element.text = new_time_str
+                
+                # 4. Preserve tail for indentation
+                new_time_element.tail = time_element.tail
+                
+                # 5. Replace the old element with the new one
+                point[index] = new_time_element
+
 
 def get_xml_element_text(element, tag, namespace):
     """Safely find and return the text content of a child element, or None."""
@@ -129,6 +170,10 @@ def process_gpx_file(gpx_path, max_time_gap_sec, max_distance_gap_m):
         if not all_points:
             print(f"[ Track {trk_idx + 1} ] No points found. Skipping.")
             continue
+
+        # NEW STEP: Reformat all timestamps before processing, ensuring consistent output format
+        for point in all_points:
+            reformat_point_timestamp(point)
 
         print(f"[ Track {trk_idx + 1} ] Original points: {len(all_points)}. Segmenting...")
         
@@ -235,15 +280,25 @@ def process_gpx_file(gpx_path, max_time_gap_sec, max_distance_gap_m):
     print(f"Output written to: {output_path}")
 
 def write_gpx_file(original_path, tree):
-    """Constructs the output filename and writes the modified XML tree."""
+    """
+    Constructs the output filename, writes the modified XML tree, 
+    and performs a final string-level cleanup to remove unwanted timezone offsets.
+    """
     base, ext = os.path.splitext(original_path)
     output_path = f"{base}_resegmented{ext}"
     
-    # Use ET.tostring() with xml_declaration=True for a full XML header
-    # and encoding='utf-8' for compliance.
-    xml_string = ET.tostring(tree.getroot(), encoding='utf-8', xml_declaration=True)
+    # 1. Serialize the ElementTree to a string
+    # ElementTree often adds timezone information like +00:00Z automatically.
+    xml_string_bytes = ET.tostring(tree.getroot(), encoding='utf-8', xml_declaration=True)
+    xml_string = xml_string_bytes.decode('utf-8')
     
-    with open(output_path, 'wb') as f:
+    # 2. FIX: Perform string replacements to force the exact required format (YYYY-MM-DDTHH:MM:SS)
+    # This aggressively removes the unwanted timezone data from the end of the time tag content.
+    xml_string = xml_string.replace('+00:00Z</time>', '</time>')
+    xml_string = xml_string.replace('Z</time>', '</time>')
+    
+    # 3. Write the cleaned string to the output file
+    with open(output_path, 'w', encoding='utf-8') as f:
         f.write(xml_string)
         
     return output_path
