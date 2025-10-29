@@ -49,6 +49,44 @@ def get_xml_element_text(element, tag, namespace):
     child = element.find(tag, namespace)
     return child.text.strip() if child is not None and child.text else None
 
+def format_duration(seconds):
+    """Converts a duration in seconds into Hh Mm Ss format."""
+    seconds = int(seconds)
+    if seconds < 0:
+        return "N/A" # Should not happen with valid GPX
+        
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    
+    parts = []
+    if hours > 0:
+        parts.append(f"{hours}h")
+    # Include minutes if there are hours, or if minutes > 0
+    if minutes > 0 or (hours > 0 and secs == 0):
+        parts.append(f"{minutes}m")
+    # Only include seconds if no hours/minutes, or if secs > 0
+    if secs > 0 or (not hours and not minutes): 
+        parts.append(f"{secs}s")
+    
+    return " ".join(parts)
+
+
+# --- NEW HELPER FUNCTION for Naming and Printing ---
+
+def add_name_and_print(segment_element, count, reason):
+    """
+    Creates and inserts the <name> element into the segment, and prints 
+    the result to the console.
+    """
+    name = f"Segment {count} ({reason})"
+    name_element = ET.SubElement(segment_element, '{http://www.topografix.com/GPX/1/1}name')
+    name_element.text = name
+    # The tail ensures the subsequent <trkpt> starts on a new line with 6 spaces indentation
+    name_element.tail = '\n      ' 
+    print(f"    - NEW SEGMENT STARTED: {name}")
+    return name
+
 # --- MAIN LOGIC ---
 
 def process_gpx_file(gpx_path, max_time_gap_sec, max_distance_gap_m):
@@ -56,7 +94,8 @@ def process_gpx_file(gpx_path, max_time_gap_sec, max_distance_gap_m):
     Combines segments and re-segments each track based on time and distance gaps.
     """
     print(f"--- Processing GPX File: {os.path.basename(gpx_path)} ---")
-    print(f"Time break threshold: > {max_time_gap_sec/3600:.1f} hours")
+    # Print the threshold using the original input unit (hours) for clarity
+    print(f"Time break threshold: > {max_time_gap_sec/3600:.1f} hours") 
     print(f"Distance break threshold: > {max_distance_gap_m:.2f} meters")
 
     try:
@@ -95,12 +134,20 @@ def process_gpx_file(gpx_path, max_time_gap_sec, max_distance_gap_m):
         
         # 2. Re-segmentation Logic
         new_segment = ET.Element('{http://www.topografix.com/GPX/1/1}trkseg')
+        # Force the first child (<name>) to be indented on a new line (6 spaces)
+        new_segment.text = '\n      '
+        current_segment_count = 1
+        
+        # Initialize the first segment's name immediately
+        segment_start_reason = "Continuous (Start of Track)"
+        add_name_and_print(new_segment, current_segment_count, segment_start_reason)
+
         # Add the first point to the new segment
         if all_points:
             new_segment.append(all_points[0])
+            # Set tail for the first point to ensure the next point is indented
+            all_points[0].tail = '\n      '
 
-        current_segment_count = 1
-        points_in_segment = 1
         
         for i in range(1, len(all_points)):
             current_pt = all_points[i]
@@ -116,6 +163,8 @@ def process_gpx_file(gpx_path, max_time_gap_sec, max_distance_gap_m):
             time2_str = get_xml_element_text(current_pt, 'gpx:time', GPX_NS)
 
             break_segment = False
+            time_break_info = None
+            distance_break_info = None
 
             # Check 1: Time Gap (if times are valid)
             time1 = parse_gpx_time(time1_str)
@@ -125,31 +174,58 @@ def process_gpx_file(gpx_path, max_time_gap_sec, max_distance_gap_m):
                 time_difference = (time2 - time1).total_seconds()
                 if time_difference > max_time_gap_sec:
                     break_segment = True
-                    # print(f"  -> Break at index {i}: Time gap of {time_difference:.0f}s")
+                    time_duration_str = format_duration(time_difference)
+                    time_break_info = f"Time Gap ({time_duration_str})"
 
             # Check 2: Distance Gap
             distance = haversine(lat1, lon1, lat2, lon2)
             if distance > max_distance_gap_m:
                 break_segment = True
-                # print(f"  -> Break at index {i}: Distance gap of {distance:.2f}m")
+                distance_break_info = f"Distance Gap ({distance:.2f} m)"
 
             # If a break is detected, close the current segment and start a new one
             if break_segment:
+                
+                # Construct the combined reason using the detailed break info
+                reasons = []
+                if time_break_info:
+                    reasons.append(time_break_info)
+                if distance_break_info:
+                    reasons.append(distance_break_info)
+                segment_break_reason = " and ".join(reasons)
+                
+                # 1. Append the closed segment 
+                # Fix indentation for the closing </trkseg> tag: last point's tail must be parent's indentation (4 spaces)
+                prev_pt.tail = '\n    ' 
                 trk.append(new_segment)
-                new_segment = ET.Element('{http://www.topografix.com/GPX/1/1}trkseg')
+                
+                # 2. Determine reason for the NEW segment
+                segment_start_reason = f"Break: {segment_break_reason}"
                 current_segment_count += 1
-                points_in_segment = 0
+                
+                # 3. Start the new segment (Element, Text, Name, Print)
+                new_segment = ET.Element('{http://www.topografix.com/GPX/1/1}trkseg')
+                new_segment.text = '\n      ' # Indent first child
+                add_name_and_print(new_segment, current_segment_count, segment_start_reason)
             
-            # Add the current point to the (new or existing) segment
+            # 4. Add the current point to the (new or existing) segment
             new_segment.append(current_pt)
-            points_in_segment += 1
+            # Set tail for current point to push the next item to a new line
+            current_pt.tail = '\n      ' 
 
         # 3. Append the last segment (unless it's empty)
         if len(new_segment.findall('gpx:trkpt', GPX_NS)) > 0:
+            
+            # Fix indentation for the closing </trkseg> tag: 
+            # The last point's tail must be set to the parent's indentation (4 spaces)
+            last_pt = new_segment.findall('gpx:trkpt', GPX_NS)[-1]
+            last_pt.tail = '\n    '
+            
             trk.append(new_segment)
             total_segments_created += current_segment_count
         else:
-             total_segments_created += current_segment_count - 1 # Don't count the empty last segment
+             # Only count the segments that were actually created and appended
+             total_segments_created += current_segment_count - 1 
 
         print(f"  -> Track resegmented into {current_segment_count} new segments.")
 
@@ -185,23 +261,27 @@ def main():
         "gpx_file",
         help="Path to the input GPX file (.gpx)."
     )
-    # 1 hour = 3600 seconds
+    # MODIFIED: Time gap now takes input in MINUTES (default 60 min = 1 hour)
     parser.add_argument(
         "--time-gap",
         type=int,
-        default=3600, 
-        help="Time gap threshold in seconds (> this value triggers a break). Default: 3600 (1 hour)."
+        default=60, 
+        help="Time gap threshold in MINUTES (> this value triggers a break). Default: 60 (1 hour)."
     )
-    # 100 meters
+    # MODIFIED: Distance gap explicitly states METERS (default 100 meters)
     parser.add_argument(
         "--dist-gap",
         type=float,
         default=100.0, 
-        help="Distance gap threshold in meters (> this value triggers a break). Default: 100.0 meters."
+        help="Distance gap threshold in METERS (> this value triggers a break). Default: 100.0 meters."
     )
     
     args = parser.parse_args()
-    process_gpx_file(args.gpx_file, args.time_gap, args.dist_gap)
+    
+    # Convert time gap from minutes (user input) to seconds (required by process_gpx_file)
+    time_gap_seconds = args.time_gap * 60
+    
+    process_gpx_file(args.gpx_file, time_gap_seconds, args.dist_gap)
 
 if __name__ == "__main__":
     main()
