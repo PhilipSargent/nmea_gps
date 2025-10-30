@@ -98,15 +98,21 @@ def convert_degrees_to_meters(degrees_lat, degrees_lon, mean_lat):
 def get_precision_and_format(stddev, min_decimals=2):
     """
     Determines a dynamic formatting string for reporting based on standard deviation.
-    """
+    The goal is to report to a precision slightly better than the variability.
+    
+    Precision is set to at least one decimal place beyond the first significant 
+    digit of the standard deviation, ensuring a minimum of 'min_decimals'.
+"""
     if stddev == 0.0:
         # Use a high fixed precision for perfect data
         precision_decimals = min_decimals + 4  
     else:
         try:
-            # Calculated precision is at least one decimal place beyond the first significant digit of the standard deviation
+            # We add 1 to report one more decimal place than the error indicates.
+            # math.ceil(-math.log10(stddev)) gives the power of 10 of the smallest significant digit.            # Calculated precision is at least one decimal place beyond the first significant digit of the standard deviation
             calculated_precision = math.ceil(-math.log10(stddev)) + 1
         except ValueError:
+            # Catch exceptions for extreme values, falling back to high precision
             calculated_precision = min_decimals + 4
             
         # Ensure we always report at least min_decimals (e.g., 6 for Lat/Lon)
@@ -220,7 +226,8 @@ def analyze_gpx_file(gpx_path):
                     ele_text = get_xml_element_text(pt, 'gpx:ele', GPX_NS)
                     
                     # Store data for weighted calculation
-                    if ele_text is not None:
+                    # Ensure elevation exists before trying to convert/collect
+                   if ele_text is not None:
                         ele = float(ele_text)
                         lat_data.append(lat)
                         lon_data.append(lon)
@@ -229,6 +236,7 @@ def analyze_gpx_file(gpx_path):
                         # Store the HDOP associated with this *valid* point for weighting
                         hdop_data.append(hdop)
                     else:
+                        # Optional: You might want to omit points without elevation too
                         # Skip points without elevation data
                         pass 
 
@@ -246,6 +254,8 @@ def analyze_gpx_file(gpx_path):
             duration_report = "N/A"
             
             if first_valid_time_str and last_valid_time_str:
+                # GPX standard time format is YYYY-MM-DDTHH:MM:SS[Z]. 
+                # We use the format without the timezone designator (%z) to handle missing 'Z'.
                 try:
                     time_format = '%Y-%m-%dT%H:%M:%S'
                     
@@ -257,12 +267,14 @@ def analyze_gpx_file(gpx_path):
                     
                     start_time_report = first_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
                     
+                    # Format duration nicely: "X hours, Y minutes, Z seconds"
                     total_seconds = int(segment_duration.total_seconds())
                     hours, remainder = divmod(total_seconds, 3600)
                     minutes, seconds = divmod(remainder, 60)
                     duration_report = f"{hours}h {minutes}m {seconds}s"
                     
                 except ValueError:
+                    # Handle cases where the time string is malformed or not the expected format
                     pass
             
             print(f"    Start Time (First Valid Point): {start_time_report}")
@@ -270,8 +282,8 @@ def analyze_gpx_file(gpx_path):
             
             # --- Continue with existing reporting ---
             
-            print(f"    Points Analyzed (HDOP $\\le 4.0$): {total_points}")
-            print(f"    Points Omitted (HDOP $> 4.0$): {omissions_count}")
+            print(f"    Points Analyzed (HDOP ≤ 4.0): {total_points}")
+            print(f"    Points Omitted (HDOP > 4.0): {omissions_count}")
             
             if total_points > 0:
                 # Calculate weighted means and standard deviations
@@ -308,9 +320,9 @@ def analyze_gpx_file(gpx_path):
                 
                 # Report Latitude 
                 print(f"      Latitude (lat): Mean={mean_lat:{lat_lon_format}}, StdDev={stddev_lat:{lat_lon_format}}")
-                print(f"        (Weighted Mean $\\pm 2\\sigma$ Degrees): {lat_ci_low:{lat_lon_format}} to {lat_ci_high:{lat_lon_format}}")
-                print(f"        (Weighted Mean $\\pm 2\\sigma$ Meters N/S): $\\pm {two_stddev_lat_m:.2f}$ m")
-                
+                print(f"        (Weighted Mean ± 2 StdDev Degrees): {lat_ci_low:{lat_lon_format}} to {lat_ci_high:{lat_lon_format}}")
+                print(f"        (Weighted Mean ± 2 StdDev Meters N/S): ± {two_stddev_lat_m:.2f} m")
+               
                 # Report Longitude 
                 print(f"      Longitude (lon): Mean={mean_lon:{lat_lon_format}}, StdDev={stddev_lon:{lat_lon_format}}")
                 print(f"        (Weighted Mean $\\pm 2\\sigma$ Degrees): {lon_ci_low:{lat_lon_format}} to {lon_ci_high:{lat_lon_format}}")
