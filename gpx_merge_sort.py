@@ -17,30 +17,30 @@ def get_xml_element_text(element, tag, namespace):
 
 def get_track_start_time(trk_element):
     """
-    Finds and parses the time of the first track point in the first segment of a track.
+    Finds and parses the time of the first track point found in any segment of the track,
+    this allows for empty segments.  The nested loop ensures that if the first, second, or third segment is empty, 
+    it continues searching the subsequent segments and points until it finds a valid timestamp. 
+
     This time is used for sorting.
     """
+    
     try:
-        # Find the first track segment
-        first_seg = trk_element.find('gpx:trkseg', GPX_NS)
-        if first_seg is None:
-            return None
-
-        # Find the first track point in that segment
-        first_pt = first_seg.find('gpx:trkpt', GPX_NS)
-        if first_pt is None:
-            return None
-        
-        # Get the time string from the point
-        time_str = get_xml_element_text(first_pt, 'time', GPX_NS)
-        
-        if time_str:
-            # GPX standard time format is ISO 8601 (e.g., 2023-10-27T10:00:00Z)
-            # We need to robustly handle the 'Z' (Zulu/UTC) and potential fractional seconds.
-            clean_time_str = time_str.strip().replace('Z', '').split('.')[0]
+        # 1. Iterate over all track segments
+        for trkseg in trk_element.findall('gpx:trkseg', GPX_NS):
             
-            # Standard GPX time format: YYYY-MM-DDTHH:MM:SS
-            return datetime.strptime(clean_time_str, '%Y-%m-%dT%H:%M:%S')
+            # 2. Iterate over all track points within the current segment
+            for first_pt in trkseg.findall('gpx:trkpt', GPX_NS):
+                
+                # 3. Get the time string from the point
+                time_str = get_xml_element_text(first_pt, 'time', GPX_NS)
+                
+                if time_str:
+                    # GPX standard time format is ISO 8601 (e.g., 2023-10-27T10:00:00Z)
+                    # We need to robustly handle the 'Z' (Zulu/UTC) and potential fractional seconds.
+                    clean_time_str = time_str.strip().replace('Z', '').split('.')[0]
+                    
+                    # Standard GPX time format: YYYY-MM-DDTHH:MM:SS
+                    return datetime.strptime(clean_time_str, '%Y-%m-%dT%H:%M:%S')
             
     except Exception as e:
         # Log error but return None to skip or treat as unsortable
