@@ -189,7 +189,7 @@ class Stack:
             
         first_msg, _ = self._items[0]
         if msg.quality != first_msg.quality:
-            print("QUALITY FIX change") # never happens!
+            print(f"QUALITY FIX change {dat} discard msg {msg.quality} {first_msg.quality}") # never happens!
             return False
             
         since = dat - self._first
@@ -353,7 +353,7 @@ class NMEATracker:
             datstr = dat.strftime('%Y-%m-%dT%H:%M:%S') # no TZ as it must always be UTC
             if quality == 1:
                 fix = "3d"
-            elif msg.quality == 2:
+            elif quality == 2:
                 fix = "2d"
             else:
                 fix = "none"
