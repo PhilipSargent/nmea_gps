@@ -2,7 +2,7 @@ import argparse
 import os
 import sys
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timezone
 
 # GPX Namespace definition (standard for GPX 1.1 files)
 GPX_NS = {'gpx': 'http://www.topografix.com/GPX/1/1'}
@@ -107,7 +107,8 @@ def merge_gpx_files(input_files, output_file):
     # Add simple metadata to the new file
     metadata = ET.SubElement(gpx_root, f"{{{GPX_NS_URL}}}metadata")
     time_tag = ET.SubElement(metadata, f"{{{GPX_NS_URL}}}time")
-    time_tag.text = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+    # time_tag.text = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')    
+    time_tag.text = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
     
     # 4. Append the sorted tracks to the new root
     for _, trk_element in all_tracks:
