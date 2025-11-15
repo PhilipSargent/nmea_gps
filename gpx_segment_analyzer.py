@@ -3,6 +3,8 @@ import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
+# git@github.com:PhilipSargent/nmea_gps.git
+
 # GPX Namespace definition (standard for GPX 1.1 files)
 # This is necessary to correctly find elements within the GPX structure.
 GPX_NS = {'gpx': 'http://www.topografix.com/GPX/1/1'}

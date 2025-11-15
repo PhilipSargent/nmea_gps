@@ -5,6 +5,8 @@ import xml.etree.ElementTree as ET
 import math
 from datetime import datetime
 
+# git@github.com:PhilipSargent/nmea_gps.git
+
 # GPX Namespace definition (standard for GPX 1.1 files)
 GPX_NS = {'gpx': 'http://www.topografix.com/GPX/1/1'}
 # Register the namespace for clean output

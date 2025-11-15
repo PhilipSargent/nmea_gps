@@ -2,6 +2,9 @@ import os
 import argparse
 import xml.etree.ElementTree as ET
 import copy
+
+# git@github.com:PhilipSargent/nmea_gps.git
+
 """write a python program which will split up a .gpx file into separate .gpx files, 
 one file for each <trk> ."""
 

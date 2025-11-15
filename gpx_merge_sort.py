@@ -4,6 +4,8 @@ import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
+# git@github.com:PhilipSargent/nmea_gps.git
+
 # GPX Namespace definition (standard for GPX 1.1 files)
 GPX_NS = {'gpx': 'http://www.topografix.com/GPX/1/1'}
 GPX_NS_URL = GPX_NS['gpx']
@@ -101,7 +103,7 @@ def merge_gpx_files(input_files, output_file):
     gpx_root = ET.Element(
         f"{{{GPX_NS_URL}}}gpx", 
         version="1.1", 
-        creator="GPX Merge Sort Script"
+        creator="GPX Merge Sort Script github.com:PhilipSargent/nmea_gps"
     )
 
     # Add simple metadata to the new file
