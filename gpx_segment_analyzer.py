@@ -94,19 +94,13 @@ def get_segment_data(gpx_file_path):
             last_pt = points[-1]
             
             # Extract time strings
-            # first_time_str = get_xml_element_text(first_pt, 'time', GPX_NS)
-            # last_time_str = get_xml_element_text(last_pt, 'time', GPX_NS)
             start_time = get_track_time(first_pt)
             end_time = get_track_time(last_pt)
 
             if not start_time or not end_time:
                 print(f"  Segment {segment_count}: Start or end time missing. Cannot calculate duration.")
                 continue
-            
-             # Parse time strings into datetime objects
-            # start_time = datetime.strptime(first_time_str, TIME_FORMAT)
-            # end_time = datetime.strptime(last_time_str, TIME_FORMAT)
-            
+             
             # Calculate duration (timedelta object)
             duration = end_time - start_time
             
