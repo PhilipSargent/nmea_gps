@@ -23,9 +23,10 @@ https://github.com/semuconsulting/pynmeagps
     @author: semuadmin
 """
 import errno, os
-
+import psutil
 import resource
 import socket
+import subprocess
 import sys
 import time as tm
 import pynmeagps.exceptions as nme
@@ -485,12 +486,98 @@ def seconds_since(start):
     dur = datetime.now(tz=TZ) - start
     return dur.seconds + dur.microseconds / 1e6
 
+def it_is_alive():
+    """The QK A026 has failed to respond to a repeated request to open a socket,
+    is it actually there at all?
+    """
+    COUNT = 5
+    PING_TIMEOUT = 2
+    
+    conns_list = psutil.net_connections(kind='tcp')
+    for conn in conns_list:
+        if SERVER in f"{conn}":
+            prettify_conn(conn)
+    
+    command = [
+    "ping", 
+    "-c", str(COUNT), 
+    "-W", str(PING_TIMEOUT), 
+    SERVER
+        ]
+    # we check the return code (0 for success)
+    # and look for packet loss percentage.
+    success_text = f"{COUNT} packets received"
+        
+    print(f"Pinging {SERVER} using command: {' '.join(command)}")
+
+    try:
+        # 2. Execute the command and capture output
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False  # Do NOT raise an exception on non-zero exit code (ping failure)
+        )
+
+        # 3. Check the result
+        if result.returncode == 0:
+            print(f"✅ Ping successful! (Return Code 0)")
+            # You can parse more details from result.stdout if needed
+            return True
+        else:
+            # On non-Windows, a return code of 1 or 2 often means no reply
+            print(f"❌ Ping failed. Return Code: {result.returncode}")
+            print(result.stderr or result.stdout)
+            return False
+
+    except FileNotFoundError:
+        print(f"ERROR: The 'ping' command was not found. Is it installed and in your PATH?")
+        return False
+    except Exception as e:
+        print(f"An unexpected error occurred during ping: {e}")
+        return False
+        
+def prettify_conn(conn):
+    # 1. Local Address
+    if conn.laddr:
+        local = f"{conn.laddr.ip}:{conn.laddr.port}"
+    else:
+        local = "-"
+
+    # 2. Remote Address
+    if conn.raddr:
+        remote = f"{conn.raddr.ip}:{conn.raddr.port}"
+    else:
+        remote = "-"
+
+    # 3. Status (e.g., ESTABLISHED, LISTEN, CLOSE_WAIT)
+    status = conn.status
+
+    # 4. Process ID (PID)
+    pid = conn.pid if conn.pid else 0
+
+    # 5. Process Name
+    process_name = "-"
+    if pid > 0:
+        try:
+            # Look up the process name using its PID
+            p = psutil.Process(pid)
+            process_name = p.name()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            process_name = "[Unknown/Access Denied]"
+     
+    print(local, remote, status, pid, process_name)
+    # return (local, remote, status, pid, process_name)
+    
 if __name__ == "__main__":
 
     SERVER = "192.168.8.60" # the QK-A026
+    # SERVER = "192.168.1.1" # TEST
     PORT = 2000
     WAITS_LIST = [0.5, 1, 2, 4, 8, 16, 32, 64]
+    # WAITS_LIST = [0.5, 1, 2, 4] #TEST
     max_tries = len(WAITS_LIST)
+    max_total_tries = 1 + max_tries * 4
     SOCKET_TIMEOUT = 2
     
     if len(sys.argv) == 3:
@@ -504,31 +591,43 @@ if __name__ == "__main__":
         
     start_open = datetime.now(tz=TZ)
     print(f"{my_now()} ++ Starting nmealogger. Opening socket {SERVER}:{PORT}...", flush=True)  
-    tries = 1
-    for wait in WAITS_LIST:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock: # do not attemot to re-use, create a new socket object.
-            sock.settimeout(SOCKET_TIMEOUT) 
-            try:
-                sock.connect((SERVER, PORT))
-                sock.settimeout(None) # prevent blocking
-                if tries == 1:
-                    print(f"{my_now()} ++ Socket good. Connected after first try.", flush=True)
-                else:
-                    print(f"{my_now()} ++ Socket issues: connected after {tries} tries. {wait=}s", flush=True)
-            except OSError as e:
-                print(f"{my_now()} ++ Socket OSError '{e}' {SOCKET_TIMEOUT=} s. After {tries} tries.", flush=True)
-                if tries >= max_tries:
-                    print(f"{my_now()} ++ Socket connection failed after {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.", flush=True)
-                    sys.exit(1)
-                tries += 1
-                tm.sleep(wait)
-                continue # closes attempted socket, starts loop again which creates a new socket
-            except Exception as e:
-                    print(f"{my_now()} ++ Socket connection unexpected exception {e}\n    {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.", flush=True)
-                    sys.exit(1)
-                    
-            local_ip, local_port = sock.getsockname()
-            remote_ip, remote_port = sock.getpeername()
-            print(f"{my_now()} Now attempting to readstream(sock) on {local_ip}:{local_port} to  {remote_ip}:{remote_port}", flush=True)
-            readstream(sock) # should be blocking
-            print(f"{my_now()} !! Should only get here if process was interrupted. readstream(sock) on {local_ip}:{local_port} to  {remote_ip}:{remote_port} has returned without doing the sys.exit()", flush=True)
+    total_tries = 1
+    while True:
+        tries = 1
+        for wait in WAITS_LIST:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock: # do not attemot to re-use, create a new socket object.
+                sock.settimeout(SOCKET_TIMEOUT) 
+                try:
+                    sock.connect((SERVER, PORT))
+                    sock.settimeout(None) # prevent blocking
+                    if tries == 1:
+                        # print(f"{my_now()} ++ Socket good. Connected after first try.", flush=True)
+                        pass
+                    else:
+                        print(f"{my_now()} ++ Socket issues: connected only after {tries} tries. {wait=}s", flush=True)
+                except OSError as e:
+                    print(f"{my_now()} ++ Socket OSError '{e}' {SOCKET_TIMEOUT=} s. After {tries} tries.", flush=True)
+                    if tries >= max_tries:
+                        print(f"{my_now()} ++ Socket connection failed after {tries} tries, after {seconds_since(start_open)} seconds ({wait=}).", flush=True)
+                        if it_is_alive():
+                            # keep trying, it's hung but it's there..
+                            print(f"{my_now()} ++ It exists, trying another cycle of opening a socket: {total_tries} tries in total so far.", flush=True)
+                            if total_tries >= max_total_tries:
+                                print(f"{my_now()} ++ Still no luck after {total_tries} tries. You do need to power-cycle the  QK A-026: 'AIS' on the boat control panel.", flush=True)
+                                sys.exit(1)                            
+                        else:
+                            print(f"{my_now()} ++ Does not respond to ping. You need to power-cycle the  QK A-026: 'AIS' on the boat control panel.", flush=True)
+                            sys.exit(1)
+                    tries += 1
+                    total_tries += 1
+                    tm.sleep(wait)
+                    continue # closes attempted socket, starts loop again which creates a new socket
+                except Exception as e:
+                        print(f"{my_now()} ++ Socket connection unexpected exception {e}\n    {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.", flush=True)
+                        sys.exit(1)
+                        
+                local_ip, local_port = sock.getsockname()
+                remote_ip, remote_port = sock.getpeername()
+                print(f"{my_now()} Now attempting to readstream(sock) on {local_ip}:{local_port} to  {remote_ip}:{remote_port}", flush=True)
+                readstream(sock) # should be blocking
+                print(f"{my_now()} !! Should only get here if process was interrupted. readstream(sock) on {local_ip}:{local_port} to  {remote_ip}:{remote_port} has returned without doing the sys.exit()", flush=True)
