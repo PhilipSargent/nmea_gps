@@ -527,4 +527,6 @@ if __name__ == "__main__":
                     print(f"{my_now()} ++ Socket connection unexpected exception {e}\n    {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.")
                     sys.exit(1)
                     
-            readstream(sock)
+            print(f"{my_now()} Now attempting to readstream(sock) on {sock=}")
+            readstream(sock) # should be blocking
+            print(f"{my_now()} !! SHould not get here. Dropped through after readstream(sock) on {sock=}")
