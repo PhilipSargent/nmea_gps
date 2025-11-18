@@ -516,7 +516,7 @@ if __name__ == "__main__":
                     print(f"{my_now()} ++ Socket issues: connected after {tries} tries. {wait=}s")
                 break
             except OSError as e:
-                print(f"{my_now()} ++ Socket OSError '{e}' {SOCKET_TIMEOUT=} s. After {tries} tries. {wait=}s")
+                print(f"{my_now()} ++ Socket OSError '{e}' {SOCKET_TIMEOUT=} s. After {tries} tries.")
                 if tries >= max_tries:
                     print(f"{my_now()} ++ Socket connection failed after {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.")
                     sys.exit(1)
@@ -527,4 +527,4 @@ if __name__ == "__main__":
                     print(f"{my_now()} ++ Socket connection unexpected exception {e}\n    {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.")
                     sys.exit(1)
                     
-        readstream(sock)
+            readstream(sock)
