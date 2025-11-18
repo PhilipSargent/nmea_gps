@@ -101,7 +101,7 @@ if __name__ == "__main__":
     else:
         print(f"Result for {fail_ip}: Unreachable.")
         
-   print("\n--- Checking QK A-026 ---")
+    print("\n--- Checking QK A-026 ---")
     if ping_ip_address(fail_ip, count=1):
         print(f"Result for {qk_ip}: Reachable.")
     else:
