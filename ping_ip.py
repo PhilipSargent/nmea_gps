@@ -87,6 +87,7 @@ if __name__ == "__main__":
     # Test cases
     target_ip = "8.8.8.8" # Google DNS (should succeed)
     fail_ip = "192.0.2.1" # Reserved documentation IP (should fail)
+    qk_ip = "192.168.8.60" # QK Elec A-026
 
     print("\n--- Running Test 1 (Success Expectation) ---")
     if ping_ip_address(target_ip, count=2):
@@ -99,3 +100,9 @@ if __name__ == "__main__":
         print(f"Result for {fail_ip}: Reachable.")
     else:
         print(f"Result for {fail_ip}: Unreachable.")
+        
+   print("\n--- Checking QK A-026 ---")
+    if ping_ip_address(fail_ip, count=1):
+        print(f"Result for {qk_ip}: Reachable.")
+    else:
+        print(f"Result for {qk_ip}: Unreachable.")        
