@@ -55,7 +55,7 @@ totqk = 0
 HDOP_LIMIT = 3
 MAX_WAIT = 10 * 60 # 10 minutes in seconds
 LONG_ENOUGH = 300000 # Max messages before restart logs
-CURRENT_LOG = "current_log.txt"
+CURRENT_LOG = "current_nmea_file.txt"
 
 
 TZ = ZoneInfo('Europe/Athens')
@@ -422,9 +422,10 @@ def readstream(stream: socket.socket):
  
     rawdir = parentdir / Path("nmea_rawd") / Path(start.strftime('%Y-%m'))
     rawdir.mkdir(parents=True, exist_ok=True)
-    
-    currentdir = parentdir / Path("nmea_data")
- 
+
+    logsdir = parentdir / Path("nmea_logs") 
+    logsdir.mkdir(parents=True, exist_ok=True)
+  
     while True:  # when parse errors caused this to restart, this was sensible. But now all exceptions terminate except NewDay.
         msgcount = 0
         msggood = 0
@@ -437,7 +438,7 @@ def readstream(stream: socket.socket):
             archivefilename = archivedir / (fnstem +".nmea")
             rawfilename = rawdir / (fnstem +".nmea")
             
-            current_log = currentdir / Path(CURRENT_LOG)
+            current_log = logsdir / Path(CURRENT_LOG)
                 
             print(f"Writing\n {archivefilename}\n {rawfilename}", flush=True)
             with open(current_log, 'w', buffering=file_bufsize) as fnf: 
