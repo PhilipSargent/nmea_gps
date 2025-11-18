@@ -526,6 +526,8 @@ if __name__ == "__main__":
                     print(f"{my_now()} ++ Socket connection unexpected exception {e}\n    {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.", flush=True)
                     sys.exit(1)
                     
-            print(f"{my_now()} Now attempting to readstream(sock) on {sock.laddr=} {sock.raddr=}", flush=True)
+            local_ip, local_port = sock.getsockname()
+            remote_ip, remote_port = sock.getpeername()
+            print(f"{my_now()} Now attempting to readstream(sock) on {local_ip}:{local_port} to  {remote_ip}:{remote_port}", flush=True)
             readstream(sock) # should be blocking
-            print(f"{my_now()} !! Should only get here if process was interrupted. readstream(sock) on {sock=} has returned without doing the sys.exit()", flush=True)
+            print(f"{my_now()} !! Should only get here if process was interrupted. readstream(sock) on {local_ip}:{local_port} to  {remote_ip}:{remote_port} has returned without doing the sys.exit()", flush=True)
