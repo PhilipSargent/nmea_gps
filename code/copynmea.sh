@@ -1,5 +1,4 @@
 #!/bin/sh 
-# updated 20 Feb.2025
 # copies to /home/nmea not to /root
 # started by crontab, every 7 minutes
 pkill ssh-agent
@@ -10,13 +9,13 @@ ssh-add /root/.ssh/id_papaya
 cd /root/nmea_data
 # wc /root/nmea_data/*/*.nmea
 
-touch nmealogger_rsync-start.txt
+touch ../nmea_logs/nmealogger_rsync-start.txt
 
 # this is good for 2024 to 2099
-echo "rsync /root/nmea_data/ START" >>nmealogger_rsync-ok.txt
-rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data >>nmealogger_rsync-ok.txt 2>>nmealogger_rsync-error.txt
-echo "rsync /root/nmea_rawd/ START" >>nmealogger_rsync-ok.txt
-rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_rawd/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_rawd >>nmealogger_rsync-ok.txt 2>>nmealogger_rsync-error.txt
+echo "rsync /root/nmea_data/ START" >>../nmea_logs/nmealogger_rsync-ok.txt
+rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
+echo "rsync /root/nmea_rawd/ START" >>../nmea_logs/nmealogger_rsync-ok.txt
+rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_rawd/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_rawd >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
 #pkill "ssh-agent -s"
 
 # reverse copy from server to laptop:
@@ -31,4 +30,4 @@ echo nmea data copy ran ok.
 wget https://hc-ping.com/9cac10d3-757d-4ff3-96cc-e7714825e35f -T 10 -O /dev/null
 echo healthchecks.io GET ran ok
 
-touch nmealogger_rsync-end.txt
+touch ../nmea_logs/nmealogger_rsync-end.txt
