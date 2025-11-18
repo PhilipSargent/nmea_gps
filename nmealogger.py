@@ -511,22 +511,21 @@ if __name__ == "__main__":
                 sock.connect((SERVER, PORT))
                 sock.settimeout(None) # prevent blocking
                 if tries == 1:
-                    print(f"{my_now()} ++ Socket OK. Connected after first try.")
+                    print(f"{my_now()} ++ Socket good. Connected after first try.", flush=True)
                 else:
-                    print(f"{my_now()} ++ Socket issues: connected after {tries} tries. {wait=}s")
-                break
+                    print(f"{my_now()} ++ Socket issues: connected after {tries} tries. {wait=}s", flush=True)
             except OSError as e:
-                print(f"{my_now()} ++ Socket OSError '{e}' {SOCKET_TIMEOUT=} s. After {tries} tries.")
+                print(f"{my_now()} ++ Socket OSError '{e}' {SOCKET_TIMEOUT=} s. After {tries} tries.", flush=True)
                 if tries >= max_tries:
-                    print(f"{my_now()} ++ Socket connection failed after {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.")
+                    print(f"{my_now()} ++ Socket connection failed after {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.", flush=True)
                     sys.exit(1)
                 tries += 1
                 tm.sleep(wait)
-                continue
+                continue # closes attempted socket, starts loop again which creates a new socket
             except Exception as e:
-                    print(f"{my_now()} ++ Socket connection unexpected exception {e}\n    {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.")
+                    print(f"{my_now()} ++ Socket connection unexpected exception {e}\n    {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.", flush=True)
                     sys.exit(1)
                     
-            print(f"{my_now()} Now attempting to readstream(sock) on {sock=}")
+            print(f"{my_now()} Now attempting to readstream(sock) on {sock=}", flush=True)
             readstream(sock) # should be blocking
-            print(f"{my_now()} !! SHould not get here. Dropped through after readstream(sock) on {sock=}")
+            print(f"{my_now()} !! SHould not get here. Dropped through after readstream(sock) on {sock=}", flush=True)
