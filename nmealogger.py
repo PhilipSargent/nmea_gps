@@ -502,7 +502,7 @@ if __name__ == "__main__":
         sys.exit(1)
         
     start_open = datetime.now(tz=TZ)
-    print(f"{my_now()} ++ Opening socket {SERVER}:{PORT}...", flush=True)  
+    print(f"{my_now()} ++ Starting nmealogger. Opening socket {SERVER}:{PORT}...", flush=True)  
     tries = 1
     for wait in WAITS_LIST:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock: # do not attemot to re-use, create a new socket object.
@@ -511,7 +511,7 @@ if __name__ == "__main__":
                 sock.connect((SERVER, PORT))
                 sock.settimeout(None) # prevent blocking
                 if tries == 1:
-                    print(f"{my_now()} ++ Socket OK. Connected after {tries} tries. {wait=}s")
+                    print(f"{my_now()} ++ Socket OK. Connected after first try.")
                 else:
                     print(f"{my_now()} ++ Socket issues: connected after {tries} tries. {wait=}s")
                 break
