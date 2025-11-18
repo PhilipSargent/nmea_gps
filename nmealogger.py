@@ -477,12 +477,20 @@ def readstream(stream: socket.socket):
 
         sys.exit(1)
 
+def my_now():
+    return datetime.now(tz=TZ).strftime('%Y-%m-%d %H:%M:%S %Z')
+    
+def seconds_since(start):
+    dur = datetime.now(tz=TZ) - start
+    return dur.seconds + dur.microseconds / 1e6
+
 if __name__ == "__main__":
 
     SERVER = "192.168.8.60" # the QK-A026
     PORT = 2000
-    max_tries = 200
-    socket_delay = 0.1 # seconds
+    WAITS_LIST = [0.5, 1, 2, 4, 8, 16, 32, 64]
+    max_tries = len(WAITS_LIST)
+    SOCKET_TIMEOUT = 2
     
     if len(sys.argv) == 3:
         SERVER = sys.argv[1]
@@ -493,22 +501,30 @@ if __name__ == "__main__":
         print(f"Either with no parameters or with server ip and port, e.g.\n$ python nmealogger.py 0.0.0.0 65432", flush=True)
         sys.exit(1)
         
-    
-    print(f"Opening socket {SERVER}:{PORT}...", flush=True)
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        tries = 1
-        while True:
+    start_open = datetime.now(tz=TZ)
+    print(f"{my_now()} ++ Opening socket {SERVER}:{PORT}...", flush=True)  
+    tries = 1
+    for wait in WAITS_LIST:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock: # do not attemot to re-use, create a new socket object.
+            sock.settimeout(SOCKET_TIMEOUT) 
             try:
                 sock.connect((SERVER, PORT))
-                if tries > 1:
-                    print(f"++ Socket connected after {tries} tries")
+                sock.settimeout(None) # prevent blocking
+                if tries == 1:
+                    print(f"{my_now()} ++ Socket OK. Connected after {tries} tries. {wait=}s")
+                else:
+                    print(f"{my_now()} ++ Socket issues: connected after {tries} tries. {wait=}s")
                 break
-            except OSError:
+            except OSError as e:
+                print(f"{my_now()} ++ Socket OSError '{e}' {SOCKET_TIMEOUT=} s. After {tries} tries. {wait=}s")
                 if tries >= max_tries:
-                    print(f"++ Socket connection failed after {tries} tries = {tries*socket_delay} seconds. Exiting.")
+                    print(f"{my_now()} ++ Socket connection failed after {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.")
                     sys.exit(1)
                 tries += 1
-                tm.sleep(socket_delay)
-
+                tm.sleep(wait)
                 continue
+            except Exception as e:
+                    print(f"{my_now()} ++ Socket connection unexpected exception {e}\n    {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.")
+                    sys.exit(1)
+                    
         readstream(sock)
