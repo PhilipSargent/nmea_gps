@@ -57,6 +57,7 @@ HDOP_LIMIT = 3
 MAX_WAIT = 10 * 60 # 10 minutes in seconds
 LONG_ENOUGH = 300000 # Max messages before restart logs
 CURRENT_LOG = "current_nmea_file.txt"
+PING_FAILURE = "ping_failure.txt"
 
 
 TZ = ZoneInfo('Europe/Athens')
@@ -153,7 +154,7 @@ class Stack:
 # Create a module-level instance of the Stack class which is unique, i.e. a singleton
 RUNNING_STACK = 6
 data_stack = Stack(RUNNING_STACK)
-
+        
 def print_summary(msg=None):
     global totcount, totgood, totparse, totqk,  start, msg_by_id
     
@@ -486,6 +487,18 @@ def seconds_since(start):
     dur = datetime.now(tz=TZ) - start
     return dur.seconds + dur.microseconds / 1e6
 
+def get_seconds_since_file_creation(filepath):
+    if not filepath.is_file:
+        print(f"Error: File not found at path: {filepath}")
+        return None
+
+    try:
+        creation_timestamp = os.path.getctime(filepath)       
+        return tm.time() - creation_timestamp
+    except Exception as e:
+        print(f"An error occurred while accessing file '{filepath}' metadata: {e}")
+        return None
+        
 def it_is_alive():
     """The QK A026 has failed to respond to a repeated request to open a socket,
     is it actually there at all?
@@ -527,7 +540,7 @@ def it_is_alive():
         else:
             # On non-Windows, a return code of 1 or 2 often means no reply
             print(f"❌ Ping failed. Return Code: {result.returncode}")
-            print(result.stderr or result.stdout)
+            # print(result.stderr or result.stdout)
             return False
 
     except FileNotFoundError:
@@ -569,22 +582,46 @@ def prettify_conn(conn):
     print(local, remote, status, pid, process_name)
     # return (local, remote, status, pid, process_name)
 
+def get_ping_flag():
+    logsdir = parentdir = Path(__file__).parent.parent / Path("nmea_logs") 
+    ping_failure = logsdir / Path(PING_FAILURE)
+    return ping_failure
+
 WAIT_FOR_A026_RESET = 60*5 # 5 minutes
+# WAIT_FOR_A026_RESET = 5 # test
 def wait_and_exit():
     """Insert a wait before exit to allow user to reset the A-026 but
     mostly to prevent clogging up the log files with repeated retries which we are pretty sure will 
     not do anything useful
     """
-    tm.sleep(WAIT_FOR_A026_RESET)
+    ping_failure = get_ping_flag()
+    if ping_failure.is_file():
+        # This is not the first time this has happened.
+        age = get_seconds_since_file_creation(ping_failure)
+        # insert a geometric wait time, bounded by 24 hours
+        print(f"{age/60:.1f} minutes since ping began failing.")
+        wait = min(24*60*60, age*1.5)
+    else:
+        with open(ping_failure, 'w') as fnf: 
+            fnf.write(f"Failed to ping QK A-026.")
+        wait = WAIT_FOR_A026_RESET
+        
+    print(f"Waiting {wait/60:.1f} minutes before exit.")
+    tm.sleep(wait)
     sys.exit(1)                            
-  
+
+def clear_ping_flag():
+    ping_failure = get_ping_flag()
+    if ping_failure.is_file():
+        ping_failure.unlink() # deletes flag
+        
 if __name__ == "__main__":
 
     SERVER = "192.168.8.60" # the QK-A026
-    # SERVER = "192.168.1.1" # TEST
+    #SERVER = "192.168.1.1" # TEST
     PORT = 2000
     WAITS_LIST = [0.5, 1, 2, 4, 8, 16, 32, 64]
-    # WAITS_LIST = [0.5, 1, 2, 4] #TEST
+    #WAITS_LIST = [0.5, 1, 2] #TEST
     max_tries = len(WAITS_LIST)
     max_total_tries = 1 + max_tries * 4
     SOCKET_TIMEOUT = 2
@@ -599,7 +636,7 @@ if __name__ == "__main__":
         sys.exit(1)
         
     start_open = datetime.now(tz=TZ)
-    print(f"{my_now()} ++ Starting nmealogger. Opening socket {SERVER}:{PORT}...", flush=True)  
+    print(f"{my_now()} ++ Starting nmealogger. Opening socket {SERVER}:{PORT}... (timeout is {SOCKET_TIMEOUT}s)", flush=True)  
     total_tries = 1
     while True:
         tries = 1
@@ -615,17 +652,17 @@ if __name__ == "__main__":
                     else:
                         print(f"{my_now()} ++ Socket issues: connected only after {tries} tries. {wait=}s", flush=True)
                 except OSError as e:
-                    print(f"{my_now()} ++ Socket OSError '{e}' {SOCKET_TIMEOUT=} s. After {tries} tries.", flush=True)
+                    print(f"{my_now()} ++ Socket OSError '{e}'. After {tries} tries.", flush=True)
                     if tries >= max_tries:
                         print(f"{my_now()} ++ Socket connection failed after {tries} tries, after {seconds_since(start_open)} seconds ({wait=}).", flush=True)
                         if it_is_alive():
                             # keep trying, it's hung but it's there..
                             print(f"{my_now()} ++ It exists, trying another cycle of opening a socket: {total_tries} tries in total so far.", flush=True)
                             if total_tries >= max_total_tries:
-                                print(f"{my_now()} ++ Still no luck after {total_tries} tries. You do need to power-cycle the  QK A-026: 'AIS' on the boat control panel. Waiting {WAIT_FOR_A026_RESET/60} minutes.", flush=True)
+                                print(f"{my_now()} ++ Still no luck after {total_tries} tries.\n == You do need to power-cycle the  QK A-026: 'AIS' on the boat control panel. ", flush=True)
                                 wait_and_exit()
                         else:
-                            print(f"{my_now()} ++ Does not respond to ping. You need to power-cycle the  QK A-026: 'AIS' on the boat control panel. Waiting {WAIT_FOR_A026_RESET/60} minutes.", flush=True)
+                            print(f"{my_now()} ++ Does not respond to ping.\n == You need to power-cycle the  QK A-026: 'AIS' on the boat control panel. ", flush=True)
                             wait_and_exit()
                             
                     tries += 1
@@ -636,6 +673,9 @@ if __name__ == "__main__":
                         print(f"{my_now()} ++ Socket connection UNEXPECTED exception {e}\n    {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.", flush=True)
                         sys.exit(1)
                         
+                # socket opened fine, so clear flags  
+                clear_ping_flag()    
+                
                 local_ip, local_port = sock.getsockname()
                 remote_ip, remote_port = sock.getpeername()
                 print(f"{my_now()} Now attempting readstream(sock) on {local_ip}:{local_port} to  {remote_ip}:{remote_port}", flush=True)
