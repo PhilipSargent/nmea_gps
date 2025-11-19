@@ -568,7 +568,16 @@ def prettify_conn(conn):
      
     print(local, remote, status, pid, process_name)
     # return (local, remote, status, pid, process_name)
-    
+
+WAIT_FOR_A026_RESET = 60*5 # 5 minutes
+def wait_and_exit():
+    """Insert a wait before exit to allow user to reset the A-026 but
+    mostly to prevent clogging up the log files with repeated retries which we are pretty sure will 
+    not do anything useful
+    """
+    tm.sleep(WAIT_FOR_A026_RESET)
+    sys.exit(1)                            
+  
 if __name__ == "__main__":
 
     SERVER = "192.168.8.60" # the QK-A026
@@ -613,21 +622,22 @@ if __name__ == "__main__":
                             # keep trying, it's hung but it's there..
                             print(f"{my_now()} ++ It exists, trying another cycle of opening a socket: {total_tries} tries in total so far.", flush=True)
                             if total_tries >= max_total_tries:
-                                print(f"{my_now()} ++ Still no luck after {total_tries} tries. You do need to power-cycle the  QK A-026: 'AIS' on the boat control panel.", flush=True)
-                                sys.exit(1)                            
+                                print(f"{my_now()} ++ Still no luck after {total_tries} tries. You do need to power-cycle the  QK A-026: 'AIS' on the boat control panel. Waiting {WAIT_FOR_A026_RESET/60} minutes.", flush=True)
+                                wait_and_exit()
                         else:
-                            print(f"{my_now()} ++ Does not respond to ping. You need to power-cycle the  QK A-026: 'AIS' on the boat control panel.", flush=True)
-                            sys.exit(1)
+                            print(f"{my_now()} ++ Does not respond to ping. You need to power-cycle the  QK A-026: 'AIS' on the boat control panel. Waiting {WAIT_FOR_A026_RESET/60} minutes.", flush=True)
+                            wait_and_exit()
+                            
                     tries += 1
                     total_tries += 1
                     tm.sleep(wait)
                     continue # closes attempted socket, starts loop again which creates a new socket
                 except Exception as e:
-                        print(f"{my_now()} ++ Socket connection unexpected exception {e}\n    {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.", flush=True)
+                        print(f"{my_now()} ++ Socket connection UNEXPECTED exception {e}\n    {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.", flush=True)
                         sys.exit(1)
                         
                 local_ip, local_port = sock.getsockname()
                 remote_ip, remote_port = sock.getpeername()
-                print(f"{my_now()} Now attempting to readstream(sock) on {local_ip}:{local_port} to  {remote_ip}:{remote_port}", flush=True)
+                print(f"{my_now()} Now attempting readstream(sock) on {local_ip}:{local_port} to  {remote_ip}:{remote_port}", flush=True)
                 readstream(sock) # should be blocking
                 print(f"{my_now()} !! Should only get here if process was interrupted. readstream(sock) on {local_ip}:{local_port} to  {remote_ip}:{remote_port} has returned without doing the sys.exit()", flush=True)
