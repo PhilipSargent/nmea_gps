@@ -23,6 +23,7 @@ https://github.com/semuconsulting/pynmeagps
     @author: semuadmin
 """
 import errno, os
+import math
 import psutil
 import resource
 import socket
@@ -592,21 +593,22 @@ WAIT_FOR_A026_RESET = 60*5 # 5 minutes
 def wait_and_exit():
     """Insert a wait before exit to allow user to reset the A-026 but
     mostly to prevent clogging up the log files with repeated retries which we are pretty sure will 
-    not do anything useful
+    not do anything useful.
+    Note that the router is rebooted twice a day, so this will always run twice a day on bootup.
     """
     ping_failure = get_ping_flag()
     if ping_failure.is_file():
         # This is not the first time this has happened.
-        age = get_seconds_since_file_creation(ping_failure)
+        age = math.floor(get_seconds_since_file_creation(ping_failure)) # integer
         # insert a geometric wait time, bounded by 24 hours
-        print(f"{age/60:.1f} minutes since ping began failing.")
+        print(f"{age // 3600:02d}h {age % 3600 // 60:02d}m {age % 60:02d}s since ping began failing.")
         wait = min(24*60*60, age*1.5)
     else:
         with open(ping_failure, 'w') as fnf: 
             fnf.write(f"Failed to ping QK A-026.")
         wait = WAIT_FOR_A026_RESET
         
-    print(f"Waiting {wait/60:.1f} minutes before exit.")
+    print(f"Waiting {wait/60:.1f} minutes before exit, but router may reboot before then.")
     tm.sleep(wait)
     sys.exit(1)                            
 
@@ -654,7 +656,7 @@ if __name__ == "__main__":
                 except OSError as e:
                     print(f"{my_now()} ++ Socket OSError '{e}'. After {tries} tries.", flush=True)
                     if tries >= max_tries:
-                        print(f"{my_now()} ++ Socket connection failed after {tries} tries, after {seconds_since(start_open)} seconds ({wait=}).", flush=True)
+                        print(f"{my_now()} ++ Socket connection failed after {tries} tries, after {seconds_since(start_open):.0f} seconds ({wait=}).", flush=True)
                         if it_is_alive():
                             # keep trying, it's hung but it's there..
                             print(f"{my_now()} ++ It exists, trying another cycle of opening a socket: {total_tries} tries in total so far.", flush=True)
@@ -670,7 +672,7 @@ if __name__ == "__main__":
                     tm.sleep(wait)
                     continue # closes attempted socket, starts loop again which creates a new socket
                 except Exception as e:
-                        print(f"{my_now()} ++ Socket connection UNEXPECTED exception {e}\n    {tries} tries, after {seconds_since(start_open)} seconds ({wait=}). Exiting.", flush=True)
+                        print(f"{my_now()} ++ Socket connection UNEXPECTED exception {e}\n    {tries} tries, after {seconds_since(start_open):.0f} seconds ({wait=}). Exiting.", flush=True)
                         sys.exit(1)
                         
                 # socket opened fine, so clear flags  
