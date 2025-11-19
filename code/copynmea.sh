@@ -12,12 +12,12 @@ cd /root/nmea_data
 touch ../nmea_logs/nmealogger_rsync-start.txt
 
 # this is good for 2024 to 2099
-echo "rsync /root/nmea_data/ START" >>../nmea_logs/nmealogger_rsync-ok.txt
+echo "rsync /root/nmea_data/ DATA `date`" >>../nmea_logs/nmealogger_rsync-ok.txt
 rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
-echo "rsync /root/nmea_rawd/ START" >>../nmea_logs/nmealogger_rsync-ok.txt
+echo "rsync /root/nmea_rawd/ RAW " >>../nmea_logs/nmealogger_rsync-ok.txt
 rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_rawd/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_rawd >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
 
-echo "rsync /root/nmea_logs/ START" >>../nmea_logs/nmealogger_rsync-ok.txt
+echo "rsync /root/nmea_logs/ LOGS" >>../nmea_logs/nmealogger_rsync-ok.txt
 rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_logs/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_logs >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
 #pkill "ssh-agent -s"
 
