@@ -588,6 +588,11 @@ def get_ping_flag():
     ping_failure = logsdir / Path(PING_FAILURE)
     return ping_failure
 
+def get_aliveness():
+    logsdir = parentdir = Path(__file__).parent.parent / Path("nmea_logs") 
+    aliveness = logsdir / Path("still_alive.txt")
+    return aliveness
+
 def format_dur(age):
     age = math.floor(age) # integer
     return f"{age // 3600:02d}h {age % 3600 // 60:02d}m {age % 60:02d}s"
@@ -612,7 +617,9 @@ def wait_and_exit():
             fnf.write(f"Failed to ping QK A-026.")
         wait = WAIT_FOR_A026_RESET
         
-    print(f"Waiting  {format_dur(wait)} before exit, but router may reboot before then.")
+    print(f"Waiting  {format_dur(wait)} before exit, but the router may reboot before then.")
+    # touch a marker file to that nmeachecker.sh does not think that this has hung
+    get_aliveness().touch() 
     tm.sleep(wait)
     sys.exit(1)                            
 
@@ -626,8 +633,8 @@ if __name__ == "__main__":
     SERVER = "192.168.8.60" # the QK-A026
     #SERVER = "192.168.1.1" # TEST
     PORT = 2000
-    WAITS_LIST = [0.5, 1, 2, 4, 8, 16, 32, 64]
-    #WAITS_LIST = [0.5, 1, 2] #TEST
+    WAITS_LIST = [4, 8, 16, 32, 64]
+    WAITS_LIST = [0.5, 1, 2] #TEST
     max_tries = len(WAITS_LIST)
     max_total_tries = 1 + max_tries * 4
     SOCKET_TIMEOUT = 2
