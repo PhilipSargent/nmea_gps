@@ -588,6 +588,10 @@ def get_ping_flag():
     ping_failure = logsdir / Path(PING_FAILURE)
     return ping_failure
 
+def format_dur(age):
+    age = math.floor(age) # integer
+    return f"{age // 3600:02d}h {age % 3600 // 60:02d}m {age % 60:02d}s"
+    
 WAIT_FOR_A026_RESET = 60*5 # 5 minutes
 # WAIT_FOR_A026_RESET = 5 # test
 def wait_and_exit():
@@ -599,16 +603,16 @@ def wait_and_exit():
     ping_failure = get_ping_flag()
     if ping_failure.is_file():
         # This is not the first time this has happened.
-        age = math.floor(get_seconds_since_file_creation(ping_failure)) # integer
+        age = get_seconds_since_file_creation(ping_failure) 
         # insert a geometric wait time, bounded by 24 hours
-        print(f"{age // 3600:02d}h {age % 3600 // 60:02d}m {age % 60:02d}s since ping began failing.")
+        print(f" {format_dur(age)} since ping began failing.")
         wait = min(24*60*60, age*1.5)
     else:
         with open(ping_failure, 'w') as fnf: 
             fnf.write(f"Failed to ping QK A-026.")
         wait = WAIT_FOR_A026_RESET
         
-    print(f"Waiting {wait/60:.1f} minutes before exit, but router may reboot before then.")
+    print(f"Waiting  {format_dur(wait)} before exit, but router may reboot before then.")
     tm.sleep(wait)
     sys.exit(1)                            
 
