@@ -634,7 +634,7 @@ if __name__ == "__main__":
     #SERVER = "192.168.1.1" # TEST
     PORT = 2000
     WAITS_LIST = [4, 8, 16, 32, 64]
-    WAITS_LIST = [0.5, 1, 2] #TEST
+    #WAITS_LIST = [0.5, 1, 2] #TEST
     max_tries = len(WAITS_LIST)
     max_total_tries = 1 + max_tries * 4
     SOCKET_TIMEOUT = 2
