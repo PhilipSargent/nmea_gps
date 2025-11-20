@@ -59,6 +59,7 @@ MAX_WAIT = 10 * 60 # 10 minutes in seconds
 LONG_ENOUGH = 300000 # Max messages before restart logs
 CURRENT_LOG = "current_nmea_file.txt"
 PING_FAILURE = "ping_failure.txt"
+HUNG_CHECK = 13 * 60 # seconds, i.e. 13 minutes, in crontab
 
 
 TZ = ZoneInfo('Europe/Athens')
@@ -596,6 +597,25 @@ def get_aliveness():
 def format_dur(age):
     age = math.floor(age) # integer
     return f"{age // 3600:02d}h {age % 3600 // 60:02d}m {age % 60:02d}s"
+
+def active_wait(wait):
+    """Waits for 'wait' seconds, but regularly touches a heartbeat file
+    so that this process does not look as if it has hung - which would
+    get it terminated by the nmeacheacker.sh script which crontab runs
+    every 13 minutes
+    """
+    touch_interval = HUNG_CHECK - 30
+    
+    if wait <= 0 :
+        get_aliveness().touch() 
+        return
+    num_intervals = math.floor(wait / touch_interval)
+    remaining_wait = wait % touch_interval # modulo division
+    schedule =  [touch_interval] * num_intervals + [remaining_wait]
+    for delay in schedule:
+        # touch a marker file to that nmeachecker.sh does not think that this has hung
+        get_aliveness().touch() 
+        tm.sleep(delay)
     
 WAIT_FOR_A026_RESET = 60*5 # 5 minutes
 # WAIT_FOR_A026_RESET = 5 # test
@@ -605,6 +625,7 @@ def wait_and_exit():
     not do anything useful.
     Note that the router is rebooted twice a day, so this will always run twice a day on bootup.
     """
+    
     ping_failure = get_ping_flag()
     if ping_failure.is_file():
         # This is not the first time this has happened.
@@ -617,10 +638,8 @@ def wait_and_exit():
             fnf.write(f"Failed to ping QK A-026.")
         wait = WAIT_FOR_A026_RESET
         
-    print(f"Waiting  {format_dur(wait)} before exit, but the router may reboot before then.")
-    # touch a marker file to that nmeachecker.sh does not think that this has hung
-    get_aliveness().touch() 
-    tm.sleep(wait)
+    print(f"Waiting  {format_dur(wait)} before exit.")
+    active_wait(wait)
     sys.exit(1)                            
 
 def clear_ping_flag():
@@ -634,7 +653,7 @@ if __name__ == "__main__":
     #SERVER = "192.168.1.1" # TEST
     PORT = 2000
     WAITS_LIST = [4, 8, 16, 32, 64]
-    #WAITS_LIST = [0.5, 1, 2] #TEST
+    #WAITS_LIST = [1, 1, 1] #TEST
     max_tries = len(WAITS_LIST)
     max_total_tries = 1 + max_tries * 4
     SOCKET_TIMEOUT = 2
