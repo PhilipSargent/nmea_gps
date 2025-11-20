@@ -61,7 +61,7 @@ CURRENT_LOG = "current_nmea_file.txt"
 PING_FAILURE = "ping_failure.txt"
 HUNG_CHECK = 13 * 60 # seconds, i.e. 13 minutes, in crontab
 
-
+AIS_DEVICE = "QK A026"
 TZ = ZoneInfo('Europe/Athens')
 
 class NewDay(Exception):
@@ -502,11 +502,11 @@ def get_seconds_since_file_creation(filepath):
         return None
         
 def it_is_alive():
-    """The QK A026 has failed to respond to a repeated request to open a socket,
+    """The AIS_DEVICE has failed to respond to a repeated request to open a socket,
     is it actually there at all?
     """
-    COUNT = 5
-    PING_TIMEOUT = 2
+    COUNT = 8 
+    PING_TIMEOUT = 5 
     
     conns_list = psutil.net_connections(kind='tcp')
     for conn in conns_list:
@@ -523,7 +523,7 @@ def it_is_alive():
     # and look for packet loss percentage.
     success_text = f"{COUNT} packets received"
         
-    print(f"Pinging {SERVER} using command: {' '.join(command)}")
+    print(f"Pinging {AIS_DEVICE} using: {' '.join(command)}")
 
     try:
         # 2. Execute the command and capture output
@@ -536,12 +536,11 @@ def it_is_alive():
 
         # 3. Check the result
         if result.returncode == 0:
-            print(f"✅ Ping successful! (Return Code 0)")
+            # print(f"✅ Ping successful! (Return Code 0)")
             # You can parse more details from result.stdout if needed
             return True
         else:
-            # On non-Windows, a return code of 1 or 2 often means no reply
-            print(f"❌ Ping failed. Return Code: {result.returncode}")
+            # print(f"❌ Ping failed. Return Code: {result.returncode}")
             # print(result.stderr or result.stdout)
             return False
 
@@ -617,10 +616,10 @@ def active_wait(wait):
         get_aliveness().touch() 
         tm.sleep(delay)
     
-WAIT_FOR_A026_RESET = 60*5 # 5 minutes
-# WAIT_FOR_A026_RESET = 5 # test
+WAIT_FOR_AIS_RESET = 60*5 # 5 minutes
+# WAIT_FOR_AIS_RESET = 1 # test
 def wait_and_exit():
-    """Insert a wait before exit to allow user to reset the A-026 but
+    """Insert a wait before exit to allow user to reset the AIS_DEVICE but
     mostly to prevent clogging up the log files with repeated retries which we are pretty sure will 
     not do anything useful.
     Note that the router is rebooted twice a day, so this will always run twice a day on bootup.
@@ -632,13 +631,13 @@ def wait_and_exit():
         age = get_seconds_since_file_creation(ping_failure) 
         # insert a geometric wait time, bounded by 24 hours
         print(f" {format_dur(age)} since ping began failing.")
-        wait = min(24*60*60, age*1.5)
+        wait = min(24*60*60, age*1.5) # never more than 24h
     else:
         with open(ping_failure, 'w') as fnf: 
-            fnf.write(f"Failed to ping QK A-026.")
-        wait = WAIT_FOR_A026_RESET
+            fnf.write(f"Failed to ping {AIS_DEVICE}.")
+        wait = WAIT_FOR_AIS_RESET
         
-    print(f"Waiting  {format_dur(wait)} before exit.")
+    print(f"Waiting  {format_dur(wait)} before exit, and then inevitable restart (crontab).")
     active_wait(wait)
     sys.exit(1)                            
 
@@ -649,11 +648,11 @@ def clear_ping_flag():
         
 if __name__ == "__main__":
 
-    SERVER = "192.168.8.60" # the QK-A026
-    #SERVER = "192.168.1.1" # TEST
+    SERVER = "192.168.8.60" # the AIS_DEVICE
+    SERVER = "192.168.1.1" # TEST
     PORT = 2000
     WAITS_LIST = [4, 8, 16, 32, 64]
-    #WAITS_LIST = [1, 1, 1] #TEST
+    WAITS_LIST = [1, 2, 4] #TEST
     max_tries = len(WAITS_LIST)
     max_total_tries = 1 + max_tries * 4
     SOCKET_TIMEOUT = 2
@@ -668,7 +667,7 @@ if __name__ == "__main__":
         sys.exit(1)
         
     start_open = datetime.now(tz=TZ)
-    print(f"{my_now()} ++ Starting nmealogger. Opening socket {SERVER}:{PORT}... (timeout is {SOCKET_TIMEOUT}s)", flush=True)  
+    print(f"{my_now()} ++ Starting nmealogger. Opening socket {SERVER}:{PORT}... (timeout is {SOCKET_TIMEOUT}s per try)", flush=True)  
     total_tries = 1
     while True:
         tries = 1
@@ -682,19 +681,19 @@ if __name__ == "__main__":
                         # print(f"{my_now()} ++ Socket good. Connected after first try.", flush=True)
                         pass
                     else:
-                        print(f"{my_now()} ++ Socket issues: connected only after {tries} tries. {wait=}s", flush=True)
+                        print(f"{my_now()} ++ Socket issues: connected only after {total_tries} triess, after {seconds_since(start_open):.0f} seconds.", flush=True)
                 except OSError as e:
-                    print(f"{my_now()} ++ Socket OSError '{e}'. After {tries} tries.", flush=True)
+                    # print(f"{my_now()} ++ Socket OSError '{e}'. After {tries} tries.", flush=True)
                     if tries >= max_tries:
-                        print(f"{my_now()} ++ Socket connection failed after {tries} tries, after {seconds_since(start_open):.0f} seconds ({wait=}).", flush=True)
+                        print(f"{my_now()} ++ Socket connection failed after {tries} tries, after {seconds_since(start_open):.0f} seconds.", flush=True)
                         if it_is_alive():
                             # keep trying, it's hung but it's there..
-                            print(f"{my_now()} ++ It exists, trying another cycle of opening a socket: {total_tries} tries in total so far.", flush=True)
                             if total_tries >= max_total_tries:
-                                print(f"{my_now()} ++ Still no luck after {total_tries} tries.\n == You do need to power-cycle the  QK A-026: 'AIS' on the boat control panel. ", flush=True)
+                                print(f"{my_now()} ++ Still no luck after {total_tries} tries.\n == You do need to power-cycle the  {AIS_DEVICE}: 'AIS' on the boat control panel. ", flush=True)
                                 wait_and_exit()
+                            print(f"{my_now()} ++ It exists, trying another cycle of opening a socket: {total_tries} tries in total so far.", flush=True)
                         else:
-                            print(f"{my_now()} ++ Does not respond to ping.\n == You need to power-cycle the  QK A-026: 'AIS' on the boat control panel. ", flush=True)
+                            print(f"{my_now()} ++ Does not respond to ping.\n == You need to power-cycle the {AIS_DEVICE}: 'AIS' on the boat control panel. ", flush=True)
                             wait_and_exit()
                             
                     tries += 1
