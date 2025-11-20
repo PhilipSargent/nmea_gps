@@ -58,7 +58,7 @@ HDOP_LIMIT = 3
 MAX_WAIT = 10 * 60 # 10 minutes in seconds
 LONG_ENOUGH = 300000 # Max messages before restart logs
 CURRENT_LOG = "current_nmea_file.txt"
-PING_FAILURE = "ping_failure.txt"
+CONNECT_FAILURE = "connect_failure.txt"
 HUNG_CHECK = 13 * 60 # seconds, i.e. 13 minutes, in crontab
 
 AIS_DEVICE = "QK A026"
@@ -523,7 +523,8 @@ def it_is_alive():
     # and look for packet loss percentage.
     success_text = f"{COUNT} packets received"
         
-    print(f"Pinging {AIS_DEVICE} using: {' '.join(command)}")
+    if not in_connect_failure_mode():
+        print(f"{my_now()} -- Pinging {AIS_DEVICE} using: {' '.join(command)}")
 
     try:
         # 2. Execute the command and capture output
@@ -580,15 +581,15 @@ def prettify_conn(conn):
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             process_name = "[Unknown/Access Denied]"
      
-    print(local, remote, status, pid, process_name)
+    print(f"{my_now()} -- Conn. status:", local, remote, status, pid, process_name)
     # return (local, remote, status, pid, process_name)
 
-def get_ping_flag():
+def get_noconnect_flag():
     logsdir = parentdir = Path(__file__).parent.parent / Path("nmea_logs") 
-    ping_failure = logsdir / Path(PING_FAILURE)
-    return ping_failure
+    connect_failure = logsdir / Path(CONNECT_FAILURE)
+    return connect_failure
 
-def get_aliveness():
+def get_aliveness_filepath():
     logsdir = parentdir = Path(__file__).parent.parent / Path("nmea_logs") 
     aliveness = logsdir / Path("still_alive.txt")
     return aliveness
@@ -606,14 +607,14 @@ def active_wait(wait):
     touch_interval = HUNG_CHECK - 30
     
     if wait <= 0 :
-        get_aliveness().touch() 
+        get_aliveness_filepath().touch() 
         return
     num_intervals = math.floor(wait / touch_interval)
     remaining_wait = wait % touch_interval # modulo division
     schedule =  [touch_interval] * num_intervals + [remaining_wait]
     for delay in schedule:
         # touch a marker file to that nmeachecker.sh does not think that this has hung
-        get_aliveness().touch() 
+        get_aliveness_filepath().touch() 
         tm.sleep(delay)
     
 WAIT_FOR_AIS_RESET = 60*5 # 5 minutes
@@ -625,34 +626,45 @@ def wait_and_exit():
     Note that the router is rebooted twice a day, so this will always run twice a day on bootup.
     """
     
-    ping_failure = get_ping_flag()
-    if ping_failure.is_file():
+    if in_connect_failure_mode():
         # This is not the first time this has happened.
-        age = get_seconds_since_file_creation(ping_failure) 
+        age = get_seconds_since_file_creation(get_noconnect_flag()) 
+        delay = max(WAIT_FOR_AIS_RESET, age)
         # insert a geometric wait time, bounded by 24 hours
-        print(f" {format_dur(age)} since ping began failing.")
-        wait = min(24*60*60, age*1.5) # never more than 24h
+        print(f" {format_dur(age)} since most recent connection failure.")
+        wait = min(24*60*60, delay*1.5) # never more than 24h
     else:
-        with open(ping_failure, 'w') as fnf: 
-            fnf.write(f"Failed to ping {AIS_DEVICE}.")
         wait = WAIT_FOR_AIS_RESET
+        set_noconnect_flag()
         
     print(f"Waiting  {format_dur(wait)} before exit, and then inevitable restart (crontab).")
     active_wait(wait)
-    sys.exit(1)                            
-
-def clear_ping_flag():
-    ping_failure = get_ping_flag()
-    if ping_failure.is_file():
-        ping_failure.unlink() # deletes flag
+    sys.exit(1)
+    
+def set_noconnect_flag():
+    connect_failure = get_noconnect_flag()
+    with open(connect_failure, 'w') as fnf: 
+        fnf.write(f"Failed to connect {AIS_DEVICE}.")
+    
+def clear_noconnect_flag():
+    connect_failure = get_noconnect_flag()
+    if connect_failure.is_file():
+        connect_failure.unlink() # deletes flag
+        
+def in_connect_failure_mode():
+    connect_failure = get_noconnect_flag()
+    if connect_failure.is_file():
+        return True
+    else:
+        return False
         
 if __name__ == "__main__":
 
     SERVER = "192.168.8.60" # the AIS_DEVICE
-    SERVER = "192.168.1.1" # TEST
+    SERVER = "192.168.1.111" # TEST
     PORT = 2000
     WAITS_LIST = [4, 8, 16, 32, 64]
-    WAITS_LIST = [1, 2, 4] #TEST
+    WAITS_LIST = [1, 2] #TEST
     max_tries = len(WAITS_LIST)
     max_total_tries = 1 + max_tries * 4
     SOCKET_TIMEOUT = 2
@@ -668,6 +680,10 @@ if __name__ == "__main__":
         
     start_open = datetime.now(tz=TZ)
     print(f"{my_now()} ++ Starting nmealogger. Opening socket {SERVER}:{PORT}... (timeout is {SOCKET_TIMEOUT}s per try)", flush=True)  
+    
+    # more attempts to connect, but this time arround, suppress voluminous error printouts
+    first_time = not in_connect_failure_mode()
+         
     total_tries = 1
     while True:
         tries = 1
@@ -681,17 +697,19 @@ if __name__ == "__main__":
                         # print(f"{my_now()} ++ Socket good. Connected after first try.", flush=True)
                         pass
                     else:
-                        print(f"{my_now()} ++ Socket issues: connected only after {total_tries} triess, after {seconds_since(start_open):.0f} seconds.", flush=True)
+                        print(f"{my_now()} ++ Socket connected but maybe unreliable: Needed {total_tries} tries, after {seconds_since(start_open):.0f} seconds.", flush=True)
                 except OSError as e:
                     # print(f"{my_now()} ++ Socket OSError '{e}'. After {tries} tries.", flush=True)
                     if tries >= max_tries:
-                        print(f"{my_now()} ++ Socket connection failed after {tries} tries, after {seconds_since(start_open):.0f} seconds.", flush=True)
+                        if(first_time):
+                            print(f"{my_now()} ++ Socket connection failed ({tries} attempts), after {seconds_since(start_open):.0f} seconds.", flush=True)
                         if it_is_alive():
                             # keep trying, it's hung but it's there..
                             if total_tries >= max_total_tries:
-                                print(f"{my_now()} ++ Still no luck after {total_tries} tries.\n == You do need to power-cycle the  {AIS_DEVICE}: 'AIS' on the boat control panel. ", flush=True)
+                                print(f"{my_now()} ++ Still no luck after {total_tries} attempts.\n == You do need to power-cycle the  {AIS_DEVICE}: 'AIS' on the boat control panel. ", flush=True)
                                 wait_and_exit()
-                            print(f"{my_now()} ++ It exists, trying another cycle of opening a socket: {total_tries} tries in total so far.", flush=True)
+                            if(first_time):
+                                print(f"{my_now()} -- It exists, trying another cycle of opening a socket: {total_tries} attempts in total so far.", flush=True)
                         else:
                             print(f"{my_now()} ++ Does not respond to ping.\n == You need to power-cycle the {AIS_DEVICE}: 'AIS' on the boat control panel. ", flush=True)
                             wait_and_exit()
@@ -705,7 +723,7 @@ if __name__ == "__main__":
                         sys.exit(1)
                         
                 # socket opened fine, so clear flags  
-                clear_ping_flag()    
+                clear_noconnect_flag()    
                 
                 local_ip, local_port = sock.getsockname()
                 remote_ip, remote_port = sock.getpeername()
