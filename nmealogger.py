@@ -55,13 +55,19 @@ totparse = 0
 totqk = 0
 
 HDOP_LIMIT = 3
-MAX_WAIT = 10 * 60 # 10 minutes in seconds
-LONG_ENOUGH = 300000 # Max messages before restart logs
-CURRENT_LOG = "current_nmea_file.txt"
+MAX_WAIT_GNSS = 10 * 60 # 10 minutes in seconds
+LONG_ENOUGH = 300000 # Max messages before restart track record in a new file
+
+CURRENT_TRACK_RECORD = "current_nmea_file.txt"
 CONNECT_FAILURE = "connect_failure.txt"
 HUNG_CHECK = 13 * 60 # seconds, i.e. 13 minutes, in crontab
-
 AIS_DEVICE = "QK A026"
+SERVER = "192.168.8.60" # the AIS_DEVICE
+#SERVER = "127.0.0.1" # TEST
+PORT = 2000
+#PORT = 65432 # TEST
+
+SOCKET_TIMEOUT = 2
 TZ = ZoneInfo('Europe/Athens')
 
 class NewDay(Exception):
@@ -352,7 +358,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                                 
                                 
                         now = tm.time()
-                        if now - got_data_at > MAX_WAIT: # seconds
+                        if now - got_data_at > MAX_WAIT_GNSS: # seconds
                             # Add to log anyway, even if bad quality data
                             # should write an extra log file about these..
                             if poor_data.is_available():
@@ -442,10 +448,10 @@ def readstream(stream: socket.socket):
             archivefilename = archivedir / (fnstem +".nmea")
             rawfilename = rawdir / (fnstem +".nmea")
             
-            current_log = logsdir / Path(CURRENT_LOG)
+            current_track = logsdir / Path(CURRENT_TRACK_RECORD)
                 
             print(f"Writing\n {archivefilename}\n {rawfilename}", flush=True)
-            with open(current_log, 'w', buffering=file_bufsize) as fnf: 
+            with open(current_track, 'w', buffering=file_bufsize) as fnf: 
                 fnf.write(f"{fnstem}.nmea")
 
             with open(archivefilename, 'ab', buffering=file_bufsize) as af: # ab not wr just in case the filename is unchanged.. 
@@ -524,7 +530,7 @@ def it_is_alive():
     success_text = f"{COUNT} packets received"
         
     if not in_connect_failure_mode():
-        print(f"{my_now()} -- Pinging {AIS_DEVICE} using: {' '.join(command)}")
+        print(f"{my_now()} ++ Pinging {AIS_DEVICE} using: {' '.join(command)}")
 
     try:
         # 2. Execute the command and capture output
@@ -618,7 +624,7 @@ def active_wait(wait):
         tm.sleep(delay)
     
 WAIT_FOR_AIS_RESET = 60*5 # 5 minutes
-# WAIT_FOR_AIS_RESET = 1 # test
+WAIT_FOR_AIS_RESET = 10 # test
 def wait_and_exit():
     """Insert a wait before exit to allow user to reset the AIS_DEVICE but
     mostly to prevent clogging up the log files with repeated retries which we are pretty sure will 
@@ -644,12 +650,15 @@ def wait_and_exit():
 def set_noconnect_flag():
     connect_failure = get_noconnect_flag()
     with open(connect_failure, 'w') as fnf: 
-        fnf.write(f"Failed to connect {AIS_DEVICE}.")
+        fnf.write(f"Failed to connect {AIS_DEVICE} at {SERVER}:{PORT}")
+        print(f"{my_now()} SET connect failure flag.")
+
     
 def clear_noconnect_flag():
     connect_failure = get_noconnect_flag()
     if connect_failure.is_file():
         connect_failure.unlink() # deletes flag
+        print(f"{my_now()} UNSET connect failure flag.")
         
 def in_connect_failure_mode():
     connect_failure = get_noconnect_flag()
@@ -660,14 +669,10 @@ def in_connect_failure_mode():
         
 if __name__ == "__main__":
 
-    SERVER = "192.168.8.60" # the AIS_DEVICE
-    #SERVER = "192.168.1.111" # TEST
-    PORT = 2000
     WAITS_LIST = [4, 8, 16, 32, 64]
-    #WAITS_LIST = [1, 2] #TEST
+    # WAITS_LIST = [1, 2] #TEST
     max_tries = len(WAITS_LIST)
     max_total_tries = 1 + max_tries * 4
-    SOCKET_TIMEOUT = 2
     
     if len(sys.argv) == 3:
         SERVER = sys.argv[1]
@@ -702,16 +707,16 @@ if __name__ == "__main__":
                     # print(f"{my_now()} ++ Socket OSError '{e}'. After {tries} tries.", flush=True)
                     if tries >= max_tries:
                         if(first_time):
-                            print(f"{my_now()} ++ Socket connection failed ({tries} attempts), after {seconds_since(start_open):.0f} seconds.", flush=True)
+                            print(f"{my_now()} ## Socket connection failed ({tries} attempts), after {seconds_since(start_open):.0f} seconds.", flush=True)
                         if it_is_alive():
                             # keep trying, it's hung but it's there..
                             if total_tries >= max_total_tries:
-                                print(f"{my_now()} ++ Still no luck after {total_tries} attempts.\n == You do need to power-cycle the  {AIS_DEVICE}: 'AIS' on the boat control panel. ", flush=True)
+                                print(f"{my_now()} ## Still no luck after {total_tries} attempts.\n == You do need to power-cycle the  {AIS_DEVICE}: 'AIS' on the boat control panel. ", flush=True)
                                 wait_and_exit()
                             if(first_time):
-                                print(f"{my_now()} -- It exists, trying another cycle of opening a socket: {total_tries} attempts in total so far.", flush=True)
+                                print(f"{my_now()} ++ OK ping response. Trying another cycle of opening a socket: {total_tries} attempts in total so far.", flush=True)
                         else:
-                            print(f"{my_now()} ++ Does not respond to ping.\n == You need to power-cycle the {AIS_DEVICE}: 'AIS' on the boat control panel. ", flush=True)
+                            print(f"{my_now()} ## Does not respond to ping.\n == You need to power-cycle the {AIS_DEVICE}: 'AIS' on the boat control panel. ", flush=True)
                             wait_and_exit()
                             
                     tries += 1
@@ -719,7 +724,7 @@ if __name__ == "__main__":
                     tm.sleep(wait)
                     continue # closes attempted socket, starts loop again which creates a new socket
                 except Exception as e:
-                        print(f"{my_now()} ++ Socket connection UNEXPECTED exception {e}\n    {tries} tries, after {seconds_since(start_open):.0f} seconds ({wait=}). Exiting.", flush=True)
+                        print(f"{my_now()} -- Socket connection UNEXPECTED exception {e}\n    {tries} tries, after {seconds_since(start_open):.0f} seconds ({wait=}). Exiting.", flush=True)
                         sys.exit(1)
                         
                 # socket opened fine, so clear flags  
@@ -727,6 +732,6 @@ if __name__ == "__main__":
                 
                 local_ip, local_port = sock.getsockname()
                 remote_ip, remote_port = sock.getpeername()
-                print(f"{my_now()} Now attempting readstream(sock) on {local_ip}:{local_port} to  {remote_ip}:{remote_port}", flush=True)
+                print(f"{my_now()} ++ readstream(sock) on {local_ip}:{local_port} to  {remote_ip}:{remote_port}", flush=True)
                 readstream(sock) # should be blocking
                 print(f"{my_now()} !! Should only get here if process was interrupted. readstream(sock) on {local_ip}:{local_port} to  {remote_ip}:{remote_port} has returned without doing the sys.exit()", flush=True)
