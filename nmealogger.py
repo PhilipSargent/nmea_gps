@@ -661,10 +661,10 @@ def in_connect_failure_mode():
 if __name__ == "__main__":
 
     SERVER = "192.168.8.60" # the AIS_DEVICE
-    SERVER = "192.168.1.111" # TEST
+    #SERVER = "192.168.1.111" # TEST
     PORT = 2000
     WAITS_LIST = [4, 8, 16, 32, 64]
-    WAITS_LIST = [1, 2] #TEST
+    #WAITS_LIST = [1, 2] #TEST
     max_tries = len(WAITS_LIST)
     max_total_tries = 1 + max_tries * 4
     SOCKET_TIMEOUT = 2
