@@ -23,7 +23,7 @@ overdue_updated=0  # Flag to track if any hung updated file is found
 usual_updated=0  # Flag to track if any late updated file is found
 
 root_dir="/root/" # Has to be tooted in filesystem as this runs under crontab
-root_dir="/home/philip/gps/nmea_mirror/"
+#root_dir="/home/philip/gps/nmea_mirror/"
 
 
 track=`cat ${root_dir}nmea_logs/current_nmea_file.txt`
