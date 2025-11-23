@@ -75,14 +75,14 @@ else
 
                 # Compare with threshold time
                 if [ $file_mtime -lt $threshold_time ]; then
-                  echo "DIFFERENCE=$(( $file_mtime - $threshold_time ))"
+                  # echo "DIFFERENCE=$(( $file_mtime - $threshold_time ))"
                   overdue_updated=1
                   updated=$filename
                   update_dir=$directory
                 fi
                 # Compare with usual time
                 if [ $file_mtime -lt $usual_time ]; then
-                  echo "DIFFERENCE=$(( $file_mtime - $usual_time ))"
+                  # echo "DIFFERENCE=$(( $file_mtime - $usual_time ))"
                   usual_updated=1
                   usual_fn=$filename
                   usual_dir=$directory
