@@ -123,7 +123,7 @@ else
     HOURS=$(( deadduration / 3600 ))
     REMAINING_SECONDS=$(( deadduration % 3600 ))
     MINUTES=$(( REMAINING_SECONDS / 60 ))
-    echo `date` "Hung, keep_alive is OLD: by ${HOURS}h${MINUTES}m  (${deadduration}s) $alive_stamp "
+    echo `date` "Keep_alive is OLD: by ${HOURS}h${MINUTES}m  (${deadduration}s) $alive_stamp "
 fi
 
 if [ $overdue_updated -ne 0 ]; then
