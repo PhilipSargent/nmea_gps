@@ -14,9 +14,9 @@ usual=1
 # Get the current time (in seconds since epoch)
 current_time=$(date +%s)
 
-# Calculate the threshold time (current time minus threshold in minutes)
-threshold_time=$((current_time - (threshold * 60)))
-usual_time=$((current_time - (usual * 60)))
+# Calculate the threshold time in the past
+threshold_time=$((current_time - (threshold * 60))) # 13 minutes ago
+usual_time=$((current_time - (usual * 60))) # a minute ago
 
 # Loop through files in the directory
 overdue_updated=0  # Flag to track if any hung updated file is found
@@ -35,20 +35,21 @@ echo "$track"
 trackpath=${root_dir}nmea_data/$track
 directory=$(echo "$track" | cut -c 1-7)
 if [ -f $trackpath  ]; then
-    echo "which EXISTS in $directory"  
+    # echo "which EXISTS in $directory"  
     filepath=$trackpath
     # Get the file modification time
     file_mtime=$(date -r "$filepath" +%s)
-    file_stamp=$(date -r "$filepath" +"%T %Z")
+    file_stamp=$(date -r "$filepath" +"%F %T %Z")
 
     # Compare with threshold time
     if [ $file_mtime -gt $threshold_time ]; then
-      overdue_updated=1
+       overdue_updated=1
       updated=$filename
       update_dir=$directory
     fi
     # Compare with usual time
     if [ $file_mtime -gt $usual_time ]; then
+      echo "DIFFERENCE=$(( $file_mtime - $usual_time ))"
       usual_updated=1
       usual_fn=$filename
       usual_dir=$directory
@@ -70,16 +71,18 @@ else
               if [ -f "$filepath"  ]; then
                 # Get the file modification time
                 file_mtime=$(date -r "$filepath" +%s)
-                file_stamp=$(date -r "$filepath" +"%T %Z")
+                file_stamp=$(date -r "$filepath" +"%F %T %Z")
 
                 # Compare with threshold time
-                if [ $file_mtime -gt $threshold_time ]; then
+                if [ $file_mtime -lt $threshold_time ]; then
+                  echo "DIFFERENCE=$(( $file_mtime - $threshold_time ))"
                   overdue_updated=1
                   updated=$filename
                   update_dir=$directory
                 fi
                 # Compare with usual time
-                if [ $file_mtime -gt $usual_time ]; then
+                if [ $file_mtime -lt $usual_time ]; then
+                  echo "DIFFERENCE=$(( $file_mtime - $usual_time ))"
                   usual_updated=1
                   usual_fn=$filename
                   usual_dir=$directory
@@ -98,26 +101,35 @@ fi
 
 stillalive=0 # flag to see if the heartbeat still_alive.txt is still alive =0 means alive
 alivepath="${root_dir}nmea_logs/still_alive.txt"
+
 if [ -f "$alivepath" ]; then
     alive_mtime=$(date -r "$alivepath" +%s)
-    alive_stamp=$(date -r "$alivepath" +"%T %Z")
-    echo "There is an alive timestamp:$alive_stamp mod time:$alive_mtime thresh_time:$threshold_time"
+    alive_stamp=$(date -r "$alivepath" +"%F %T %Z")
+    # echo "There is an alive timestamp:$alive_stamp mod time:$alive_mtime thresh_time:$threshold_time"
+    # echo "13 DIFFERENCE=$(( $alive_mtime - $threshold_time ))"
+    # echo "01 DIFFERENCE=$(( $alive_mtime - $usual_time ))"
 
-     if [ $alive_mtime -gt $threshold_time ]; then
+     if [ $alive_mtime -lt $threshold_time ]; then
          stillalive=1 # means it is dead
      fi
 fi
-echo "stillalive: $stillalive"
+# echo "stillalive: $stillalive"
+deadduration=$(($threshold_time - $alive_mtime))
 
 if [ $stillalive -ne 1 ] ; then
     echo `date` "Still alive: $alive_stamp "
     # no data copied to any log though
+else
+    HOURS=$(( deadduration / 3600 ))
+    REMAINING_SECONDS=$(( deadduration % 3600 ))
+    MINUTES=$(( REMAINING_SECONDS / 60 ))
+    echo `date` "Hung, keep_alive is OLD: by ${HOURS}h${MINUTES}m  (${deadduration}s) $alive_stamp "
 fi
 
-if [ $overdue_updated -ne 1 ]; then
+if [ $overdue_updated -ne 0 ]; then
   touch ${root_dir}nmea_logs/nmealogger-hung.txt     
   # we are overdue, but is there a keep_alive? 
-  if [ $stillalive -ne 1 ]; then
+  if [ $stillalive -ne 0 ]; then
       echo `date` "Alive: but no update in $threshold minutes. $updated $file_stamp nmeachecker.sh" >> ${root_dir}nmea_logs/nmealogger_error.txt
   else
       # so kill the .py process, which terminates the .sh script
@@ -129,7 +141,7 @@ if [ $overdue_updated -ne 1 ]; then
 fi
 
 # if it is between 1 and 13 minutes overdue, just make a note.
-if [ $usual_updated -ne 1 ]; then
+if [ $usual_updated -ne 0 ]; then
     echo `date` "No files in '$directory' have been updated in the last $usual minutes."
     echo `date` "Slow: no update in $usual minutes.  $usual_fn $file_stamp nmeachecker.sh" >> ${root_dir}nmea_logs/nmealogger_error.txt
 fi
