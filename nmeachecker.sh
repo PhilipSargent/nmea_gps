@@ -49,7 +49,7 @@ if [ -f $trackpath  ]; then
     fi
     # Compare with usual time
     if [ $file_mtime -gt $usual_time ]; then
-      echo "DIFFERENCE=$(( $file_mtime - $usual_time ))"
+      # echo "DIFFERENCE=$(( $file_mtime - $usual_time ))"
       usual_updated=1
       usual_fn=$filename
       usual_dir=$directory
