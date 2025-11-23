@@ -27,7 +27,7 @@ root_dir="/home/philip/gps/nmea_mirror/"
 
 
 track=`cat ${root_dir}nmea_logs/current_nmea_file.txt`
-echo "$track"
+echo "Track id file current_nmea_file.txt says: $track"
  if [ -f ${root_dir}nmea_data/current_nmea_file.txt  ]; then
     echo "EXPECTED most recent nmea TRACK file is: `cat $track`"
     
@@ -55,7 +55,7 @@ if [ -f $trackpath  ]; then
       usual_dir=$directory
     fi    
 else
-    echo "TRACK file$trackpath not found, searching for youngest .nmea file"
+    echo "TRACK file $trackpath not found, searching for recent .nmea files "
     # This checks every single .nmea file we have. Really we should just look at the
     # current file, whos ename is in current_nmea_file.txt
     dir_root=`ls -pd ${root_dir}nmea_data/* | grep "/$"`
