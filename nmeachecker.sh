@@ -22,59 +22,115 @@ usual_time=$((current_time - (usual * 60)))
 overdue_updated=0  # Flag to track if any hung updated file is found
 usual_updated=0  # Flag to track if any late updated file is found
 
-dir_root=`ls -pd ../nmea_data/* | grep "/$"`
-for directory in $dir_root; do
-    for filename in $(ls -1 "$directory"); do
-      filepath="$directory$filename"
-      # echo "$directory$filename"
+root_dir="/root/" # Has to be tooted in filesystem as this runs under crontab
+root_dir="/home/philip/gps/nmea_mirror/"
 
-      # Check if it's a regular file (skip directories, etc.)
-      if [ -f "$filepath" ]; then
-        # Get the file modification time
-        file_mtime=$(date -r "$filepath" +%s)
-        file_stamp=$(date -r "$filepath" +"%T %Z")
 
-        # Compare with threshold time
-        if [ $file_mtime -gt $threshold_time ]; then
-          overdue_updated=1
-          updated=$filename
-        fi
-        # Compare with usual time
-        if [ $file_mtime -gt $usual_time ]; then
-          usual_updated=1
-          usual_fn=$filename
-        fi
-      fi
+track=`cat ${root_dir}nmea_logs/current_nmea_file.txt`
+echo "$track"
+ if [ -f ${root_dir}nmea_data/current_nmea_file.txt  ]; then
+    echo "EXPECTED most recent nmea TRACK file is: `cat $track`"
+    
+ fi
+trackpath=${root_dir}nmea_data/$track
+directory=$(echo "$track" | cut -c 1-7)
+if [ -f $trackpath  ]; then
+    echo "which EXISTS in $directory"  
+    filepath=$trackpath
+    # Get the file modification time
+    file_mtime=$(date -r "$filepath" +%s)
+    file_stamp=$(date -r "$filepath" +"%T %Z")
+
+    # Compare with threshold time
+    if [ $file_mtime -gt $threshold_time ]; then
+      overdue_updated=1
+      updated=$filename
+      update_dir=$directory
+    fi
+    # Compare with usual time
+    if [ $file_mtime -gt $usual_time ]; then
+      usual_updated=1
+      usual_fn=$filename
+      usual_dir=$directory
+    fi    
+else
+    echo "TRACK file$trackpath not found, searching for youngest .nmea file"
+    # This checks every single .nmea file we have. Really we should just look at the
+    # current file, whos ename is in current_nmea_file.txt
+    dir_root=`ls -pd ${root_dir}nmea_data/* | grep "/$"`
+    for directory in $dir_root; do
+        for filename in $(ls -1 "$directory"); do
+          filepath="$directory$filename"
+          # is it is a .nmea file
+          if [ "$filename" != "${filename%.nmea}" ]; then #ash idiom
+              # here it DOES end in .nmea
+              # NB includes .day.nmea
+              # Check if it's a regular file (skip directories, etc.)
+              nmeafilepath=$filepath
+              if [ -f "$filepath"  ]; then
+                # Get the file modification time
+                file_mtime=$(date -r "$filepath" +%s)
+                file_stamp=$(date -r "$filepath" +"%T %Z")
+
+                # Compare with threshold time
+                if [ $file_mtime -gt $threshold_time ]; then
+                  overdue_updated=1
+                  updated=$filename
+                  update_dir=$directory
+                fi
+                # Compare with usual time
+                if [ $file_mtime -gt $usual_time ]; then
+                  usual_updated=1
+                  usual_fn=$filename
+                  usual_dir=$directory
+                fi
+              fi
+          else
+          # files which do NOT have the .nmea extension
+            continue
+          fi
+        done
     done
-done
+    echo "NOT the Youngest file found: $nmeafilepath dated $file_stamp, but checked all against limits"
+fi
+
+
 
 stillalive=0 # flag to see if the heartbeat still_alive.txt is still alive =0 means alive
-alivepath="$../nmea_logs/still_alive.txt"
+alivepath="${root_dir}nmea_logs/still_alive.txt"
 if [ -f "$alivepath" ]; then
     alive_mtime=$(date -r "$alivepath" +%s)
     alive_stamp=$(date -r "$alivepath" +"%T %Z")
+    echo "There is an alive timestamp:$alive_stamp mod time:$alive_mtime thresh_time:$threshold_time"
 
      if [ $alive_mtime -gt $threshold_time ]; then
          stillalive=1 # means it is dead
      fi
 fi
+echo "stillalive: $stillalive"
 
-if [$stillalive -eq 0 ] ; then
-    echo `date` "Still alive: $alive_stamp even though no recent updates in $directory."
+if [ $stillalive -ne 1 ] ; then
+    echo `date` "Still alive: $alive_stamp "
     # no data copied to any log though
-else
-    if [ $overdue_updated -ne 1 ]; then
+fi
+
+if [ $overdue_updated -ne 1 ]; then
+  touch ${root_dir}nmea_logs/nmealogger-hung.txt     
+  # we are overdue, but is there a keep_alive? 
+  if [ $stillalive -ne 1 ]; then
+      echo `date` "Alive: but no update in $threshold minutes. $updated $file_stamp nmeachecker.sh" >> ${root_dir}nmea_logs/nmealogger_error.txt
+  else
       # so kill the .py process, which terminates the .sh script
       # cron will then restart it in 3 minutes
-      touch /root/nmea_logs/nmealogger-hung.txt
-      echo `date` "Hung: no update in $threshold minutes.  $updated $file_stamp nmeachecker.sh" >> ../nmea_logs/nmealogger_error.txt
+      echo `date` "Hung: no update in $threshold minutes.  $updated $file_stamp nmeachecker.sh" >> ${root_dir}nmea_logs/nmealogger_error.txt
       pkill -ef "python /root/nmea_gps/nmealogger.py"
       exit 1
-    fi
+  fi
+fi
 
-    if [ $usual_updated -ne 1 ]; then
-      echo `date` "No files in '$directory' have been updated in the last $usual minutes."
-      echo `date` "Slow: no update in $usual minutes.  $usual_fn $file_stamp nmeachecker.sh" >> ../nmea_logs/nmealogger_error.txt
-    fi
+# if it is between 1 and 13 minutes overdue, just make a note.
+if [ $usual_updated -ne 1 ]; then
+    echo `date` "No files in '$directory' have been updated in the last $usual minutes."
+    echo `date` "Slow: no update in $usual minutes.  $usual_fn $file_stamp nmeachecker.sh" >> ${root_dir}nmea_logs/nmealogger_error.txt
 fi
 exit 0
