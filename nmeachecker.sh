@@ -22,7 +22,7 @@ usual_time=$((current_time - (usual * 60)))
 overdue_updated=0  # Flag to track if any hung updated file is found
 usual_updated=0  # Flag to track if any late updated file is found
 
-dir_root=`ls -pd /root/nmea_data/* | grep "/$"`
+dir_root=`ls -pd ../nmea_data/* | grep "/$"`
 for directory in $dir_root; do
     for filename in $(ls -1 "$directory"); do
       filepath="$directory$filename"
@@ -49,7 +49,7 @@ for directory in $dir_root; do
 done
 
 stillalive=0 # flag to see if the heartbeat still_alive.txt is still alive =0 means alive
-alivepath="$/root/nmea_logs/still_alive.txt"
+alivepath="$../nmea_logs/still_alive.txt"
 if [ -f "$alivepath" ]; then
     alive_mtime=$(date -r "$alivepath" +%s)
     alive_stamp=$(date -r "$alivepath" +"%T %Z")
@@ -58,24 +58,23 @@ if [ -f "$alivepath" ]; then
          stillalive=1 # means it is dead
      fi
 fi
-# Handle results
-if [ $overdue_updated -ne 1 ]; then
-  if [$stillalive -ne 0 ] ; then
+
+if [$stillalive -eq 0 ] ; then
+    echo `date` "Still alive: $alive_stamp even though no recent updates in $directory."
+    # no data copied to any log though
+else
+    if [ $overdue_updated -ne 1 ]; then
       # so kill the .py process, which terminates the .sh script
       # cron will then restart it in 3 minutes
       touch /root/nmea_logs/nmealogger-hung.txt
-      echo `date` "Hung: no update in $threshold minutes.  $updated $file_stamp nmeachecker.sh" >> /root/nmea_logs/nmealogger_error.txt
+      echo `date` "Hung: no update in $threshold minutes.  $updated $file_stamp nmeachecker.sh" >> ../nmea_logs/nmealogger_error.txt
       pkill -ef "python /root/nmea_gps/nmealogger.py"
       exit 1
-  else
-      echo `date` "Still alive: $alive_stamp even though no recent updates in $directory."
-  fi
-# else
-  # echo `date` "$filename updated recently"
-fi
+    fi
 
-if [ $usual_updated -ne 1 ]; then
-  echo `date` "No files in '$directory' have been updated in the last $usual minutes."
-  echo `date` "Slow: no update in $usual minutes.  $usual_fn $file_stamp nmeachecker.sh" >> /root/nmea_logs/nmealogger_error.txt
+    if [ $usual_updated -ne 1 ]; then
+      echo `date` "No files in '$directory' have been updated in the last $usual minutes."
+      echo `date` "Slow: no update in $usual minutes.  $usual_fn $file_stamp nmeachecker.sh" >> ../nmea_logs/nmealogger_error.txt
+    fi
 fi
 exit 0
