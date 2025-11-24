@@ -426,7 +426,7 @@ def readstream(stream: socket.socket):
     file_bufsize = 1024
     
     # directory name to be used, e.g. 2025-11/
-    month_dir = Path(start.strftime('%Y-%m')
+    month_dir = Path(start.strftime('%Y-%m'))
     # nmea_data gets rsync'd to server, nmea_rawd does not.
     parentdir = Path(__file__).parent.parent
     archivedir = parentdir / Path("nmea_data") / month_dir
