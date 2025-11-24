@@ -662,7 +662,9 @@ def clear_noconnect_flag():
         connect_failure.unlink() # deletes flag
         print(f"{my_now()} UNSET connect failure flag.")
     # ALSO clear any aliveness flag, which should only exist if we are in an aove-waiting state
-    get_aliveness_filepath().unlink()
+    keepalive = get_aliveness_filepath()
+    if keepalive.is_file():
+        keepalive.unlink()
         
 def in_connect_failure_mode():
     connect_failure = get_noconnect_flag()
