@@ -429,10 +429,10 @@ def readstream(stream: socket.socket):
     month_dir = Path(start.strftime('%Y-%m')
     # nmea_data gets rsync'd to server, nmea_rawd does not.
     parentdir = Path(__file__).parent.parent
-    archivedir = parentdir / Path("nmea_data") / month_dir)
+    archivedir = parentdir / Path("nmea_data") / month_dir
     archivedir.mkdir(parents=True, exist_ok=True)
  
-    rawdir = parentdir / Path("nmea_rawd") / month_dir)
+    rawdir = parentdir / Path("nmea_rawd") / month_dir
     rawdir.mkdir(parents=True, exist_ok=True)
 
     logsdir = parentdir / Path("nmea_logs") 
