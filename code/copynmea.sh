@@ -10,6 +10,7 @@ cd /root/nmea_data
 # wc /root/nmea_data/*/*.nmea
 
 touch ../nmea_logs/nmealogger_rsync-start.txt
+echo "`date` uploading nmea data" >>../nmea_logs/nmealogger_rsync-ok.txt
 
 # this is good for 2024 to 2099
 echo "rsync /root/nmea_data/ DATA `date`" >>../nmea_logs/nmealogger_rsync-ok.txt

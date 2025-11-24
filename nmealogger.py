@@ -425,12 +425,14 @@ def readstream(stream: socket.socket):
     )
     file_bufsize = 1024
     
+    # directory name to be used, e.g. 2025-11/
+    month_dir = Path(start.strftime('%Y-%m')
     # nmea_data gets rsync'd to server, nmea_rawd does not.
     parentdir = Path(__file__).parent.parent
-    archivedir = parentdir / Path("nmea_data") / Path(start.strftime('%Y-%m'))
+    archivedir = parentdir / Path("nmea_data") / month_dir)
     archivedir.mkdir(parents=True, exist_ok=True)
  
-    rawdir = parentdir / Path("nmea_rawd") / Path(start.strftime('%Y-%m'))
+    rawdir = parentdir / Path("nmea_rawd") / month_dir)
     rawdir.mkdir(parents=True, exist_ok=True)
 
     logsdir = parentdir / Path("nmea_logs") 
@@ -452,7 +454,7 @@ def readstream(stream: socket.socket):
                 
             print(f"Writing\n {archivefilename}\n {rawfilename}", flush=True)
             with open(current_track, 'w', buffering=file_bufsize) as fnf: 
-                fnf.write(f"{fnstem}.nmea")
+                fnf.write(f"{month_dir}/{fnstem}.nmea")
 
             with open(archivefilename, 'ab', buffering=file_bufsize) as af: # ab not wr just in case the filename is unchanged.. 
                 with open(rawfilename, 'ab', buffering=file_bufsize) as rawf: # ab not wr just in case the filename is unchanged.. 
