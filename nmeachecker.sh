@@ -34,7 +34,7 @@ echo "BEGIN"
 cat $track_id
 echo "END"
 #track=`cat $track_id`
-track=$(echo "$track"_id)
+track=$(echo "$track_id")
 echo "`date` Track id file (current_nmea_file.txt) says: $track -- $track_id"
 if [ -f ${track_id}  ]; then
     echo "  EXPECTED most recent nmea TRACK file is: `cat $track`"
