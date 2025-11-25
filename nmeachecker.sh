@@ -27,21 +27,16 @@ overdue_updated=1  # Flag to say they are all old
 usual_updated=1  # Flag to say they are all old
 youngest_fn="None"
 youngest_mtime="0"
+track=0000000000
 
 track_id=${root_dir}nmea_logs/current_nmea_file.txt
-echo "track_id = $track_id"
-echo "BEGIN"
-cat $track_id
-echo "END"
-track=`cat $track_id`
-echo "`date` Track id file (current_nmea_file.txt) says: $track -- $track_id"
 if [ -f ${track_id}  ]; then
-    echo "  EXPECTED most recent nmea TRACK file is: `cat $track`"
+    track=`cat $track_id`
+    echo "  EXPECTED most recent nmea TRACK file is: `cat $track_id`"
 fi
 # format of $track is 2025-11/2025-11-21_1234.nmea
 directory=$(echo "$track" | cut -c 1-7)
 trackpath=${root_dir}nmea_data/$track
-echo "$trackpath $directory"
 if [ -f $trackpath  ]; then
     # echo "which EXISTS in $directory"  
     filepath=$trackpath
@@ -113,8 +108,6 @@ else
     echo "YOUNGEST    $youngest_mtime $youngest_fn"
 
 fi
-
-echo " Ho hum"
 
 stillalive=0 # flag to see if the heartbeat still_alive.txt is still alive, =0 means alive
 alivepath="${root_dir}nmea_logs/still_alive.txt"
