@@ -32,7 +32,7 @@ track=0000000000
 track_id=${root_dir}nmea_logs/current_nmea_file.txt
 if [ -f ${track_id}  ]; then
     track=`cat $track_id`
-    echo "  EXPECTED most recent nmea TRACK file is: `cat $track_id`"
+    # echo "  EXPECTED most recent nmea TRACK file is: `cat $track_id` == $track"
 fi
 # format of $track is 2025-11/2025-11-21_1234.nmea
 directory=$(echo "$track" | cut -c 1-7)
