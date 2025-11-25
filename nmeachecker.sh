@@ -46,14 +46,14 @@ if [ -f $trackpath  ]; then
 
     # Compare with threshold time
     if [ $file_mtime -gt $threshold_time ]; then
-      overdue_updated=1
+      overdue_updated=0
       updated=$filename
       update_dir=$directory
     fi
     # Compare with usual time
     if [ $file_mtime -gt $usual_time ]; then
       # echo "DIFFERENCE=$(( $file_mtime - $usual_time ))"
-      usual_updated=1
+      usual_updated=0
       usual_fn=$filename
       usual_dir=$directory
     fi    
@@ -145,6 +145,7 @@ if [ $overdue_updated -ne 0 ]; then
   else
       # so kill the .py process, which terminates the .sh script
       # cron will then restart it in 3 minutes
+      echo `date` "Hung: no .nmea update in $threshold minutes.  $updated $file_stamp nmeachecker.sh" 
       echo `date` "Hung: no .nmea update in $threshold minutes.  $updated $file_stamp nmeachecker.sh" >> error_file
       pkill -ef "python /root/nmea_gps/nmealogger.py"
       exit 1
