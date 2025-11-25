@@ -33,8 +33,7 @@ echo "track_id = $track_id"
 echo "BEGIN"
 cat $track_id
 echo "END"
-#track=`cat $track_id`
-track=$(echo "$track_id")
+track=`cat $track_id`
 echo "`date` Track id file (current_nmea_file.txt) says: $track -- $track_id"
 if [ -f ${track_id}  ]; then
     echo "  EXPECTED most recent nmea TRACK file is: `cat $track`"
@@ -42,6 +41,7 @@ fi
 # format of $track is 2025-11/2025-11-21_1234.nmea
 directory=$(echo "$track" | cut -c 1-7)
 trackpath=${root_dir}nmea_data/$track
+echo "$trackpath $directory"
 if [ -f $trackpath  ]; then
     # echo "which EXISTS in $directory"  
     filepath=$trackpath
