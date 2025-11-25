@@ -33,7 +33,7 @@ echo "Track id file current_nmea_file.txt says: $track"
     
  fi
 directory=$(echo "$track" | cut -c 1-7)
-trackpath=${root_dir}nmea_data/$directory/$track
+trackpath=${root_dir}nmea_data/$track
 if [ -f $trackpath  ]; then
     # echo "which EXISTS in $directory"  
     filepath=$trackpath
