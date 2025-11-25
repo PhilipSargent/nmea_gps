@@ -29,6 +29,10 @@ youngest_fn="None"
 youngest_mtime="0"
 
 track_id=${root_dir}nmea_logs/current_nmea_file.txt
+echo "track_id = $track_id"
+echo "BEGIN"
+cat $track_id
+echo "END"
 track=`cat $track_id`
 echo "`date` Track id file (current_nmea_file.txt) says: $track -- $track_id"
  if [ -f ${track_id}  ]; then
