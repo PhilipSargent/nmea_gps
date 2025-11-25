@@ -28,10 +28,11 @@ usual_updated=1  # Flag to say they are all old
 youngest_fn="None"
 youngest_mtime="0"
 
-track=`cat ${root_dir}nmea_logs/current_nmea_file.txt`
-echo "`date` Track id file current_nmea_file.txt says: $track"
- if [ -f ${root_dir}nmea_data/current_nmea_file.txt  ]; then
-    echo "EXPECTED most recent nmea TRACK file is: `cat $track`"
+track_id=${root_dir}nmea_logs/current_nmea_file.txt
+track=`cat $track_id`
+echo "`date` Track id file (current_nmea_file.txt)says: $track"
+ if [ -f $track_id  ]; then
+    echo "  EXPECTED most recent nmea TRACK file is: `cat $track`"
     
  fi
 # format of $track is 2025-11/2025-11-21_1234.nmea
@@ -111,7 +112,7 @@ fi
 
 
 
-stillalive=0 # flag to see if the heartbeat still_alive.txt is still alive =0 means alive
+stillalive=0 # flag to see if the heartbeat still_alive.txt is still alive, =0 means alive
 alivepath="${root_dir}nmea_logs/still_alive.txt"
 
 if [ -f $alivepath ]; then
@@ -124,17 +125,17 @@ if [ -f $alivepath ]; then
      if [ $alive_mtime -lt $threshold_time ]; then
          stillalive=1 # means it is dead
      fi
-fi
 
-if [ $stillalive -ne 1 ] ; then
-    echo `date` "Still alive: $alive_stamp "
-    # no data copied to any log though
-else
-    deadduration=$(($threshold_time - $alive_mtime))
-    HOURS=$(( deadduration / 3600 ))
-    REMAINING_SECONDS=$(( deadduration % 3600 ))
-    MINUTES=$(( REMAINING_SECONDS / 60 ))
-    echo `date` "Keep_alive is OLD: by ${HOURS}h${MINUTES}m  (${deadduration}s) $alive_stamp "
+    if [ $stillalive -ne 1 ] ; then
+        echo `date` "Still alive: $alive_stamp "
+        # no data copied to any log though
+    else
+        deadduration=$(($threshold_time - $alive_mtime))
+        HOURS=$(( deadduration / 3600 ))
+        REMAINING_SECONDS=$(( deadduration % 3600 ))
+        MINUTES=$(( REMAINING_SECONDS / 60 ))
+        echo `date` "Keep_alive is OLD: by ${HOURS}h${MINUTES}m  (${deadduration}s) $alive_stamp "
+    fi
 fi
 
 if [ $overdue_updated -ne 0 ]; then
