@@ -30,8 +30,8 @@ youngest_mtime="0"
 
 track_id=${root_dir}nmea_logs/current_nmea_file.txt
 track=`cat $track_id`
-echo "`date` Track id file (current_nmea_file.txt)says: $track"
- if [ -f $track_id  ]; then
+echo "`date` Track id file (current_nmea_file.txt) says: $track -- $track_id"
+ if [ -f ${track_id}  ]; then
     echo "  EXPECTED most recent nmea TRACK file is: `cat $track`"
     
  fi
