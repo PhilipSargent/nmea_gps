@@ -125,13 +125,12 @@ if [ -f $alivepath ]; then
          stillalive=1 # means it is dead
      fi
 fi
-# echo "stillalive: $stillalive"
-deadduration=$(($threshold_time - $alive_mtime))
 
 if [ $stillalive -ne 1 ] ; then
     echo `date` "Still alive: $alive_stamp "
     # no data copied to any log though
 else
+    deadduration=$(($threshold_time - $alive_mtime))
     HOURS=$(( deadduration / 3600 ))
     REMAINING_SECONDS=$(( deadduration % 3600 ))
     MINUTES=$(( REMAINING_SECONDS / 60 ))
