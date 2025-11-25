@@ -28,7 +28,7 @@ usual_updated=1  # Flag to say they are all old
 youngest_fn="None"
 youngest_mtime="0"
 
-track=`cat ${root_dir}nmea_logs/current_nmea_file.txt`
+track=`cat ${root_dir}nmea_data/current_nmea_file.txt`
 echo "`date` Track id file current_nmea_file.txt says: $track"
  if [ -f ${root_dir}nmea_logs/current_nmea_file.txt  ]; then
     echo "EXPECTED most recent nmea TRACK file is: `cat $track`"
