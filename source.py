@@ -5,7 +5,7 @@ I got the example NMEA data from making a circular route on https://nmeagen.org/
 so it is a rather speedy circumnavigation of Poros, so that it works for testing
 Navionics where the location  must be within the scope of a purchased chart.
 """
-
+import os
 import socket
 import signal
 import time
@@ -99,6 +99,38 @@ def endless_lines_generator(long_string):
         for line in long_string.splitlines():
             yield line
  
+def raw_feed(filepath):
+    """
+    A generator function that reads a file line by line and yields each line.
+
+    This is an efficient way to process large files without loading the entire
+    contents into memory at once. It automatically handles the file closure
+    even if an exception occurs during iteration.
+
+    Args:
+        filepath: The path to the file to read (e.g., '2025-01-01_0603.nmea').
+
+    Yields:
+        str: A single line from the file, with leading/trailing whitespace 
+             (including the newline character) removed by .strip().
+    """
+    if not os.path.exists(filepath):
+        print("Error: File not found at path: {}".format(filepath))
+        return  # Stop the generator if the file doesn't exist
+
+    while True:
+        print(f"Starting raw feed from: {filepath}")
+        try:
+            with open(filepath, 'r') as f:
+                for line in f:
+                    yield line.strip()  # .strip() removes leading/trailing whitespace, including newline
+        except IOError as e:
+            print("An I/O error occurred while reading the file: {}".format(e))
+        except Exception as e:
+            print("An unexpected error occurred: {}".format(e))
+        finally:
+            print("Raw feed complete. Restarting.")
+     
 
 def main2():
 
@@ -187,5 +219,6 @@ def main2():
     server.close()
 
 if __name__ == "__main__":
-    nmea_generator = endless_lines_generator(nmea_data)
+    # nmea_generator = endless_lines_generator(nmea_data)
+    nmea_generator = raw_feed("../nmea_rawd/2025-11/2025-11-21_2208.nmea")
     main2()

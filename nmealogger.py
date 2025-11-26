@@ -54,6 +54,10 @@ totgood = 0
 totparse = 0
 totqk = 0
 
+# Earth constant: Approximate meters per degree of latitude at the equator (WGS84 standard)
+METERS_PER_DEGREE_AT_EQUATOR = 111320.0 
+METERS_PER_MINUTE_AT_EQUATOR = METERS_PER_DEGREE_AT_EQUATOR/60 # 1855m in a nautical mile, apparently. Defined as 1852 exactly by wgs84
+
 HDOP_LIMIT = 3
 MAX_WAIT_GNSS = 10 * 60 # 10 minutes in seconds
 LONG_ENOUGH = 300000 # Max messages before restart track record in a new file
@@ -153,12 +157,42 @@ class Stack:
         # this does not check that all the items are within a second or so, which it should
         besthdop = 99
         for i in self.items:
-            raw, hdop = i
+            raw, hdop, lat, lon, t = i
             if hdop < besthdop:
                 besthdop = hdop
                 bestnmea = raw
         return bestnmea
 
+    def is_compact(self):
+        # if all contents are close in time and space
+        # double dictionary is a bit convoluted
+        # lat lon ranges are in decimal minutes of arc, i.e. nautical miles for lat
+        s = {}
+        item = {}
+        DIMENSIONS = ("lat", "lon", "t")
+        for dim in DIMENSIONS:
+            s[dim] = {
+                "max": -float('inf'),
+                "min": float('inf'),
+            }
+            
+        for i in self.items:    
+            raw, hdop, lat, lon, t = i
+            item["lat"] = float(lat) * METERS_PER_MINUTE_AT_EQUATOR
+            item["lon"] = float(lon) * METERS_PER_MINUTE_AT_EQUATOR  # * math.cos(math.radians(mean_lat)) # approx.
+            item["t"] = (t.hour * 3600) + (t.minute * 60) + t.second
+            for b in DIMENSIONS:
+                s[b]["max"] = max(item[b], s[b]["max"])
+                s[b]["min"] = min(item[b], s[b]["min"])
+                s[b]["range"] = s[b]["max"] - s[b]["min"]
+        if (s["t"]["range"] > 5.0) or (s["lat"]["range"] > 0.5) or (s["lon"]["range"] > 0.5):
+            print(f"at {t.hour:02}:{t.minute:02}:{t.second:02}", end="")
+            for c in DIMENSIONS:
+                print(f" -- {c} range: {s[c]["range"]:2f}", end="")
+            print("")
+            return False
+        return True
+        
 # Create a module-level instance of the Stack class which is unique, i.e. a singleton
 RUNNING_STACK = 6
 data_stack = Stack(RUNNING_STACK)
@@ -330,7 +364,7 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                             print(f"{parsed_data.msgID}  {thisday} {t} UTC  {lat=:<13} {lon=:<13} {hdop=} {d['HDOP']}", flush=True) # last 2 digits always 33 or 67. They are strings.
                     if lat != "":
                         rawf.write(raw)
-                        rawf.flush()
+                        rawf.flush() # this will be very slow of course. But this is for bugfixing later. Faster would be to buffer it.
                         post_size = rawfilename.stat()
                         if post_size <= pre_size:
                             print(f"{parsed_data.msgID}  {thisday} {t} UTC  - FAILED TO UPDATE RAW FILE, aborting.. ", flush=True) 
@@ -348,9 +382,10 @@ def parsestream(nmr, af, archivefilename, rawf, rawfilename):
                                 # TO DO : CHECK that these data points are all within a second or two ! Otherwise we throw away data we need.
                                 
                                 # Push data to the stack
-                                data_stack.push((raw, float(d['HDOP'])))
+                                data_stack.push((raw, float(d['HDOP']), lat, lon, t))
                                 if data_stack.is_full():
                                     af.write(data_stack.best())
+                                    valid = data_stack.is_compact()
                                     af.flush()
                                     data_stack.flush()
                                     got_data_at = tm.time()
