@@ -188,7 +188,7 @@ class Stack:
         if (s["t"]["range"] > 5.0) or (s["lat"]["range"] > 0.5) or (s["lon"]["range"] > 0.5):
             print(f"at {t.hour:02}:{t.minute:02}:{t.second:02}", end="")
             for c in DIMENSIONS:
-                print(f" -- {c} range: {s[c]["range"]:2f}", end="")
+                print(f' -- {c} range: {s[c]["range"]:2f}', end="")
             print("")
             return False
         return True
