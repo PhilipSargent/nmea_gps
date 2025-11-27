@@ -14,23 +14,12 @@ import sys
 import shutil
 from pathlib import Path
 
+import nmea_time_overlap_checker as overlap
+
 BUFSIZE = 4096
 SUFFIX = ".day.nmea"
 
-def concatenate_sorted_files(directory_path, stitched_path):
-    """
-    Concatenates all files in a directory in dictionary order.
-    This DOES NOT CHECK that the GNSS timestamps are actually in  the correct order.
-    
-    This DOE NOT CHECK if there are overlaps in the timestamps from different files.
-
-    Args:
-      directory_path: The path to the directory containing the files (as a pathlib.Path object).
-      sf: The filehandle to the target
-    """
-        
-    # Get nmea filepaths (Path objects) sorted by lowercase name. We have made these in datetime UTC order.
-    # DO NOT chnage the members of a list while the list is being iterated !
+def get_filepaths(directory_path):
     filepaths = sorted(directory_path.iterdir(), key=lambda p: p.name.lower())
     print(f"{len(filepaths)} All files in {directory_path} (dictionary order):")
     not_wanted = set()
@@ -59,14 +48,32 @@ def concatenate_sorted_files(directory_path, stitched_path):
     for f in not_wanted:
         filepaths.remove(f)
         
-    print(f"{len(filepaths)} Concatenated files in {directory_path} (dictionary order):")
+    print(f"{len(filepaths)} selected files in {directory_path} (excl. .gpx, .day.nmea etc.):")
+    return filepaths
+
+  
+def concatenate_sorted_files(filepaths, directory_path, stitched_path):
+    """
+    Concatenates all files in a directory in dictionary order.
+    This DOES NOT CHECK that the GNSS timestamps are actually in  the correct order.
+    
+    This DOES NOT CHECK if there are overlaps in the timestamps from different files.
+
+    Args:
+      directory_path: The path to the directory containing the files (as a pathlib.Path object).
+      sf: The filehandle to the target
+    """
+        
+    # Get nmea filepaths (Path objects) sorted by lowercase name. We have made these in datetime UTC order.
+    # DO NOT chnage the members of a list while the list is being iterated !
     with stitched_path.open('wb', buffering=BUFSIZE) as sf: #
         for filepath in filepaths:
             with filepath.open('rb', buffering=BUFSIZE) as ifile:
-                print(filepath.name, filepath.suffixes)
+                # print(f"{filepath.stem[-7:]},", end="")
                 if ".gpx" in filepath.suffixes:
                     print(f"! (has  .gpx) {filepath.name}")
                 shutil.copyfileobj(ifile, sf)
+        # print(f"  {filepath.suffixes}")
     
     # Construct a file for each 'day' midnight to midnight EEST
     daypaths = {}
@@ -78,8 +85,13 @@ def concatenate_sorted_files(directory_path, stitched_path):
             if daypath.is_file():
                 daypath.unlink() # deletes pre-existing dayfiles
             daypaths[dayname] = daypath
-    for dp in daypaths:
-        print(dp, daypaths[dp])
+        else: 
+            print(f"{len(filepaths)} REJECT {filepath} ") 
+            
+    print(f"{len(daypaths)} whole-day .nmea files generated")
+    # for dp in daypaths:
+        # # print(dp, daypaths[dp])
+        # print(dp)
     
     for filepath in filepaths:
         dn = filepath.name[:10]
@@ -91,12 +103,14 @@ def concatenate_sorted_files(directory_path, stitched_path):
 
                 
 if __name__ == "__main__":
-    DIR = "/home/philip/gps/nmea_data/2025-11/"
+    DIR = "/home/philip/gps/nmea_mirror/nmea_data/2025-11/"
     STITCH = "stitch.nmea"
     
+    print(len(sys.argv))
     if len(sys.argv) == 3:
         DIR = sys.argv[1]
         STITCH = sys.argv[2]
+        print(f"Running with {DIR}")
 
 
     if len(sys.argv) == 2:
@@ -109,10 +123,10 @@ if __name__ == "__main__":
         sys.exit(1)
         
     stitched_path = directory_path / STITCH
-    filepaths = sorted(directory_path.iterdir(), key=lambda p: p.name.lower())
-
+    filepaths = get_filepaths(directory_path)
+    overlap.check_ranges(filepaths)
     
     print(f"Writing {stitched_path}", flush=True)
-    concatenate_sorted_files(directory_path, stitched_path)
+    concatenate_sorted_files(filepaths, directory_path, stitched_path)
 
 
