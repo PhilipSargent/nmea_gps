@@ -1,7 +1,7 @@
 """Concatenate all the nmea files in a given directory,
 and to create a concatenated file for each day. 
 
-Note that 'day' means in EEST timezone
+Note that 'day' means in EET,EEST timezone
 as it works from the filenames, it is not a UTC 'day'.
 
 Rewritten from a skeleton created by Gemini.
@@ -20,7 +20,9 @@ SUFFIX = ".day.nmea"
 def concatenate_sorted_files(directory_path, stitched_path):
     """
     Concatenates all files in a directory in dictionary order.
-    This DOES NOT CHECK that the GNSS timestamps are actually int he correct order.
+    This DOES NOT CHECK that the GNSS timestamps are actually in  the correct order.
+    
+    This DOE NOT CHECK if there are overlaps in the timestamps from different files.
 
     Args:
       directory_path: The path to the directory containing the files (as a pathlib.Path object).
@@ -89,7 +91,7 @@ def concatenate_sorted_files(directory_path, stitched_path):
 
                 
 if __name__ == "__main__":
-    DIR = "/home/philip/gps/nmea_data/2024-06/"
+    DIR = "/home/philip/gps/nmea_data/2025-11/"
     STITCH = "stitch.nmea"
     
     if len(sys.argv) == 3:
@@ -109,6 +111,7 @@ if __name__ == "__main__":
     stitched_path = directory_path / STITCH
     filepaths = sorted(directory_path.iterdir(), key=lambda p: p.name.lower())
 
+    
     print(f"Writing {stitched_path}", flush=True)
     concatenate_sorted_files(directory_path, stitched_path)
 
