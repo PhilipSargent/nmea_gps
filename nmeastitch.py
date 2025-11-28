@@ -73,28 +73,7 @@ def get_os_file_date(filepath):
 
     return dt_object.strftime("%Y%m%d"), offset, dt_utc.strftime("%Y-%m-%d")
  
-def get_nmea_date(filepath):
-    """
-    Reads the file and extracts the date (DDMMYY) from the first GPRMC sentence.
-    
-    Returns:
-        The date string (DDMMYY) or None if not found.
-    """
-    try:
-        with open(filepath, 'r') as f:
-            for line in f:
-                line = line.strip()
-                # Check for GPRMC sentence
-                if line.startswith('$GPRMC'):
-                    
-                    parts = line.split(',')
-                    # Date is field 9 (index 9)
-                    if len(parts) > 9 and parts[9]:
-                        return parts[9].split('.')[0] # DDMMYY string
-                        # return parts[9] # DDMMYY string
-        return None
-    except IOError:
-        return None
+
 
 def get_minutes_since_midnight_eet(timestamp):
     """
@@ -154,14 +133,14 @@ def check_file_and_nmea_dates(filepaths):
             mins = get_minutes_since_midnight_eet(timestamp)
             overdue = mins - offset*60
             if overdue > ALLOWANCE:
-                print(f"UTC date MISMATCH in '{filepath}' OVERDUE: {overdue:.3} minutes")
+                print(f"{filepath.name} UTC date MISMATCH: OVERDUE: {overdue:.3} minutes")
             
         
     mismatches = 0
     
     for filepath in filepaths:
         os_date_str, offset, os_utc_str = get_os_file_date(filepath)
-        nmea_date_str = get_nmea_date(filepath)
+        nmea_date_str = overlap.get_nmea_date(filepath)
         
         if not os_date_str or not nmea_date_str:
             print(f"Skipping '{filepath}': Missing OS date ({os_date_str}) or NMEA date ({nmea_date_str}).")
@@ -197,7 +176,7 @@ def file_is_empty(filepath):
 
 def get_filepaths(directory_path):
     filepaths = sorted(directory_path.iterdir(), key=lambda p: p.name.lower())
-    print(f"{len(filepaths)} All files in {directory_path} (dictionary order):")
+    # print(f"{len(filepaths)} All files in {directory_path} (dictionary order):")
     not_wanted = set()
     if stitched_path in filepaths:
         #filepaths.remove(stitched_path)
@@ -230,7 +209,7 @@ def get_filepaths(directory_path):
     for f in not_wanted:
         filepaths.remove(f)
         
-    print(f"{len(filepaths)} selected files in {directory_path} (excl. .gpx, .day.nmea etc.):")
+    # print(f"{len(filepaths)} selected files in {directory_path} (excl. .gpx, .day.nmea etc.):")
     return filepaths
 
   
@@ -272,11 +251,7 @@ def concatenate_sorted_files(filepaths, directory_path, stitched_path):
             
 
     if len(daypaths) > 0:
-        print(f"{len(daypaths)} whole-day .nmea files generated")
-        # for dp in daypaths:
-            # # print(dp, daypaths[dp])
-            # print(dp)
-        print(f"Writing {stitched_path}")
+        print(f"{directory_path.name}: {len(daypaths):3d} whole-day .nmea files generated from {len(filepaths):3d} individual .nmea files ")
 
         for filepath in filepaths:
             dn = filepath.name[:10]
@@ -296,23 +271,28 @@ if __name__ == "__main__":
     if len(sys.argv) > 2:
         # probably a sequence of directories, e.g. nmea_data/*/*.nmea which is expanded by the shell
         directories = sys.argv[1:-1] # first one is the name of the program, last is the stich filename
-        print(f"Processing {len(directories)} directories (and filenames)")
 
-        
+    files = 0
     for directory_path in directories:
         directory_path = Path(directory_path)
-        STITCH = directory_path.name + STITCH_SUFFICES
         if directory_path.is_file():
             # print(f"Error: path '{directory_path}' is a file.")
+            files += 1
             continue
         if not directory_path.is_dir():
             print(f"Error: Directory '{directory_path}' does not exist.")
             sys.exit(1)
             
+    print(f"Processing {len(directories)-files:3d} directories")
+    for directory_path in directories:       
+        directory_path = Path(directory_path)
+        STITCH = directory_path.name + STITCH_SUFFICES
         stitched_path = directory_path / STITCH
+        if directory_path.is_file():
+            continue
         filepaths = get_filepaths(directory_path)
         check_file_and_nmea_dates(filepaths)
-        #overlap.check_ranges(filepaths)        
-        #concatenate_sorted_files(filepaths, directory_path, stitched_path)
+        overlap.check_ranges(filepaths)        
+        concatenate_sorted_files(filepaths, directory_path, stitched_path)
 
 

@@ -50,6 +50,29 @@ def format_nmea_timestamp(t_str):
         minute = int(t_str[2:4])
         second = int(t_str[4:6])
         return f"{hour:02}:{minute:02}:{second:02}"
+
+def get_nmea_date(filepath):
+    """
+    Reads the file and extracts the date (DDMMYY) from the first GPRMC sentence.
+    
+    Returns:
+        The date string (DDMMYY) or None if not found.
+    """
+    try:
+        with open(filepath, 'r') as f:
+            for line in f:
+                line = line.strip()
+                # Check for GPRMC sentence
+                if line.startswith('$GPRMC'):
+                    
+                    parts = line.split(',')
+                    # Date is field 9 (index 9)
+                    if len(parts) > 9 and parts[9]:
+                        return parts[9].split('.')[0] # DDMMYY string
+                        # return parts[9] # DDMMYY string
+        return None
+    except IOError:
+        return None
         
 def same_day(file_a, file_b):
     """nmeastich overlap detection gets the day wrong!
@@ -66,9 +89,10 @@ def same_day(file_a, file_b):
     
     every .nmea file SHOULD be all within a single UTC day.
     """    
-    if file_a.name[:10] == file_b.name[:10]:
-       return True
-
+    # if file_a.name[:10] == file_b.name[:10]:
+       # return True
+    if get_nmea_date(file_a) == get_nmea_date(file_b):
+        return True
     return False
               
      
@@ -141,9 +165,17 @@ def check_ranges(filepaths):
     Checks whether the time range of any file overlaps with the time range 
     of any other file in the provided list.
     
+    USES NMEA date, not filestamp date, for each file.
+    By construction, each .nmea file is within a single "UTC day"
+    
     Returns:
         True if all files are disjoint in time, False otherwise.
     """
+    if filepaths:
+        dir_name = filepaths[0].name[:7]
+    else:
+        return False
+        
     file_ranges = {}
     paths ={}
     stamp_pairs = {}
@@ -158,7 +190,7 @@ def check_ranges(filepaths):
         paths[fp.name] = fp
         
     if len(file_ranges) < 2:
-        print("Not enough files with valid time data to check for overlaps.")
+        print(f"Not enough files in {dir_name} with valid time data to check for overlaps.")
         return True
         
     # Second pass: Check for overlaps (compare every unique pair)
@@ -207,24 +239,25 @@ def check_ranges(filepaths):
                 if has_inclusion:
                     pass
                 else:
-                    print(f"\n--- OVERLAP DETECTED --- {overlap}s - {format_duration(overlap)}")
-                    print(f"{file_a.name} ({start_A}s to {end_A}s) {stamp_pairs[file_a.name]} {format_duration(end_A-start_A)}")
-                    print(f"{file_b.name} ({start_B}s to {end_B}s) {stamp_pairs[file_b.name]} {format_duration(end_B-start_B)}")
+                    print(f"\n--- OVERLAP DETECTED --- {format_duration(overlap)}")
+                    print(f"   {file_a.name} ({start_A}s to {end_A}s) {stamp_pairs[file_a.name]} {format_duration(end_A-start_A)}")
+                    print(f"   {file_b.name} ({start_B}s to {end_B}s) {stamp_pairs[file_b.name]} {format_duration(end_B-start_B)}")
 
     all_empty = all(not inc for inc in includes.values())
     if not all_empty:
         print(f"\n--> INCLUSION REPORTS")
         for inc in includes:
             if includes[inc]:
-                print(f"{inc} {file_ranges[paths[inc]]} {stamp_pairs[inc]} COMPLETELY INCLUDES:")
+                print(f"   {inc} {file_ranges[paths[inc]]} {stamp_pairs[inc]} COMPLETELY INCLUDES:")
                 for f in sorted(list(includes[inc])):
                     start, end = file_ranges[paths[f]]
                     duration = format_duration(end - start)
-                    print(f, file_ranges[paths[f]], stamp_pairs[f], duration)
+                    print("  ",f, file_ranges[paths[f]], stamp_pairs[f], duration)
                 print("")
 
     if not has_overlap:
-        print("Success: No time overlaps were detected between any pair of files.")
+        pass
+        # print("Success: No time overlaps were detected between any pair of files.")
         
     return not has_overlap
 
