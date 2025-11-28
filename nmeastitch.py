@@ -9,15 +9,153 @@ Rewritten from a skeleton created by Gemini.
 Uses
 https://github.com/semuconsulting/pynmeagps
 """
-
+import datetime
+import os
+import time
 import sys
 import shutil
+import zoneinfo
+
 from pathlib import Path
 
 import nmea_time_overlap_checker as overlap
 
+
 BUFSIZE = 4096
 SUFFIX = ".day.nmea"
+
+def get_eet_utc_offset_hours(timestamp):
+    """
+    Calculates the UTC offset (2 or 3 hours) for a given POSIX timestamp,
+    explicitly using the Europe/Athens timezone (EET/EEST rules).
+    
+    This approach ensures the calculation is correct regardless of the 
+    Python environment's local timezone setting.
+    
+    Returns:
+        The UTC offset in hours (integer: 2 for EET, 3 for EEST).
+    """
+    try:
+        # 1. Convert the UTC timestamp to a timezone-aware datetime object (in UTC)
+        # os.path.getmtime returns a UTC timestamp (seconds since epoch)
+        dt_utc = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
+        
+        # 2. Convert the UTC datetime object to the target timezone (EET/EEST)
+        # 'Europe/Athens' is a reliable ZoneInfo name for EET/EEST
+        eet_tz = zoneinfo.ZoneInfo("Europe/Athens")
+        dt_eet = dt_utc.astimezone(eet_tz)
+        
+        # 3. Calculate the offset from UTC (as a timedelta object)
+        offset = dt_eet.utcoffset()
+        
+        # 4. Convert the timedelta offset to hours (2 or 3)
+        if offset is not None:
+            # total_seconds() is reliable for converting timedelta to a number
+            return int(offset.total_seconds() // 3600), dt_utc
+        else:
+            # Fallback to standard time (EET)
+            return 2, dt_utc
+            
+    except Exception as e:
+        print(f"Error during offset calculation: {e}")
+        return 2 # Default fallback
+
+        
+def get_os_file_date(filepath):
+    """
+    Returns the file's last modification date as a YYYYMMDD string.
+    """
+    timestamp = os.path.getmtime(filepath)
+    offset, dt_utc = get_eet_utc_offset_hours(timestamp)
+    
+   # Format as YYYYMMDD for easy comparison/logging
+    dt_object = datetime.datetime.fromtimestamp(timestamp)
+
+    return dt_object.strftime("%Y%m%d"), offset, dt_utc.strftime("%Y-%m-%d")
+ 
+def get_nmea_date(filepath):
+    """
+    Reads the file and extracts the date (DDMMYY) from the first GPRMC sentence.
+    
+    Returns:
+        The date string (DDMMYY) or None if not found.
+    """
+    try:
+        with open(filepath, 'r') as f:
+            for line in f:
+                line = line.strip()
+                # Check for GPRMC sentence
+                if line.startswith('$GPRMC'):
+                    
+                    parts = line.split(',')
+                    # Date is field 9 (index 9)
+                    if len(parts) > 9 and parts[9]:
+                        return parts[9].split('.')[0] # DDMMYY string
+                        # return parts[9] # DDMMYY string
+        return None
+    except IOError:
+        return None
+
+
+def check_file_and_nmea_dates(filepaths):
+    """
+    Compares the operating system's modification date for a file with the date 
+    contained within the NMEA data (GPRMC sentence). Reports any mismatches.
+    
+    The OS filestamp can be ONE DAY after the UTC date because the OS is 
+    in EET, EEST  which is 2 or 3 hours AHEAD of UTC. 
+    And the timestamp must be between 00:00 and 02:00 (or 03:00)
+    Any other mismatch is an error.
+    """
+    
+    mismatches = 0
+    
+    for filepath in filepaths:
+        os_date_str, offset, os_utc_str = get_os_file_date(filepath)
+        nmea_date_str = get_nmea_date(filepath)
+        
+        if not os_date_str or not nmea_date_str:
+            print(f"Skipping '{filepath}': Missing OS date ({os_date_str}) or NMEA date ({nmea_date_str}).")
+            continue
+            
+        try:
+            # OS date (YYYYMMDD)
+            os_date = datetime.datetime.strptime(os_date_str, "%Y%m%d").date()
+            
+            # NMEA date (DDMMYY) - assuming 21st century (2000-2099) for simplicity
+            nmea_date = datetime.datetime.strptime(nmea_date_str, "%d%m%y").date()
+            if os_date != nmea_date:
+                mismatches += 1
+                if os_utc_str != str(nmea_date): # nmea_date <class 'datetime.date'>
+                    # But thsi is often because the timestamp on the file is only a few seconds late, after the actual time the UTC day flipped.
+                    print(f"MISMATCH in '{filepath}':")
+                    # print(f"  {os_date} +0{offset}:00 OS Modification Date (YYYY-MM-DD) ")
+                    # print(f"  {nmea_date} NMEA Data Date (GPRMC):  (from {nmea_date_str})")
+                    timestamp = os.path.getmtime(filepath)
+                    dt_object = datetime.datetime.fromtimestamp(timestamp)
+                    print(f"    AND THIS IS NOT OK '{os_utc_str}' != '{nmea_date}' {offset} {dt_object}")
+                    
+            else:
+                pass
+                # print(f"Match for '{filepath}': Date is {os_date}")
+                
+        except ValueError as e:
+            print(f"Error parsing date in '{filepath}': {e}")
+            mismatches += 1
+            
+    # print(f"\nCompleted check. Total mismatches found: {mismatches}")
+    return mismatches == 0
+
+
+def file_is_empty(filepath):
+    """
+    Checks if a file exists and has a size of exactly zero bytes.
+    """
+    if not os.path.exists(filepath):
+        # Handle case where the file doesn't exist
+        return False
+    return os.path.getsize(filepath) == 0
+
 
 def get_filepaths(directory_path):
     filepaths = sorted(directory_path.iterdir(), key=lambda p: p.name.lower())
@@ -30,20 +168,26 @@ def get_filepaths(directory_path):
         if not filepath.is_file():
             print(f"Not a file: {filepath} \nSomething serious went wrong.")
             sys.exit(1)
-        if filepath.suffix != ".nmea":
-            # filepaths.remove(filepath)
+        if file_is_empty(filepath):
+            # skip empty files
             not_wanted.add(filepath)
-            # print(f"_ (not .nmea) not using {filepath.name}")
+        if filepath.suffix != ".nmea":
+            not_wanted.add(filepath)
+        # if filepath.name[:7] != directory_path.name:
+            # # valid files all start with the directory name, e.g. '2024-05'
+            # # NO DO NOT DO THIS. Filename may be the next month but still before 3am (2am) so in same UTC month.
+            # not_wanted.add(filepath)
         if ".day" in filepath.suffixes:
+            # we don't want previously generated .day.nmea files
             if filepath in filepaths:
-                # filepaths.remove(filepath)
                 not_wanted.add(filepath)
-                # print(f"_ (has  .day) not using {filepath.name}")
         if ".gpx" in filepath.suffixes:
             if filepath in filepaths:
-                #filepaths.remove(filepath)
                 not_wanted.add(filepath)
-                # print(f"_ (has  .gpx) not using {filepath.name}")
+        if STITCH_SUFFICES in filepath.name:
+                not_wanted.add(filepath)
+                
+                
 
     for f in not_wanted:
         filepaths.remove(f)
@@ -88,45 +232,49 @@ def concatenate_sorted_files(filepaths, directory_path, stitched_path):
         else: 
             print(f"{len(filepaths)} REJECT {filepath} ") 
             
-    print(f"{len(daypaths)} whole-day .nmea files generated")
-    # for dp in daypaths:
-        # # print(dp, daypaths[dp])
-        # print(dp)
-    
-    for filepath in filepaths:
-        dn = filepath.name[:10]
-        if dn in daypaths:
-            with daypaths[dn].open('ab', buffering=BUFSIZE) as afile: # APPEND mode
-                with filepath.open('rb', buffering=BUFSIZE) as ifile:
-                    shutil.copyfileobj(ifile, afile)
 
+    if len(daypaths) > 0:
+        print(f"{len(daypaths)} whole-day .nmea files generated")
+        # for dp in daypaths:
+            # # print(dp, daypaths[dp])
+            # print(dp)
+        print(f"Writing {stitched_path}")
 
-                
+        for filepath in filepaths:
+            dn = filepath.name[:10]
+            if dn in daypaths:
+                with daypaths[dn].open('ab', buffering=BUFSIZE) as afile: # APPEND mode
+                    with filepath.open('rb', buffering=BUFSIZE) as ifile:
+                        shutil.copyfileobj(ifile, afile)
+            
 if __name__ == "__main__":
     DIR = "/home/philip/gps/nmea_mirror/nmea_data/2025-11/"
-    STITCH = "stitch.nmea"
+    STITCH_SUFFICES = ".mnth.stitch.nmea"
     
-    print(len(sys.argv))
-    if len(sys.argv) == 3:
-        DIR = sys.argv[1]
-        STITCH = sys.argv[2]
-        print(f"Running with {DIR}")
-
-
     if len(sys.argv) == 2:
-        print(f"Either with no parameters or with directory and stitch filename, e.g.\n$ python nmeastitch.py /home/philip/gps/nmea_data/2024-05 nmea.stitch", flush=True)
-        sys.exit(1)    
-
-    directory_path = Path(DIR)  
-    if not directory_path.is_dir():
-        print(f"Error: Directory '{directory_path}' does not exist.")
-        sys.exit(1)
+        DIR = [sys.argv[1]] # list with one element
+        print(f"Processing just {DIR}")
         
-    stitched_path = directory_path / STITCH
-    filepaths = get_filepaths(directory_path)
-    overlap.check_ranges(filepaths)
-    
-    print(f"Writing {stitched_path}", flush=True)
-    concatenate_sorted_files(filepaths, directory_path, stitched_path)
+    if len(sys.argv) > 2:
+        # probably a sequence of directories, e.g. nmea_data/*/*.nmea which is expanded by the shell
+        directories = sys.argv[1:-1] # first one is the name of the program, last is the stich filename
+        print(f"Processing {len(directories)} directories (and filenames)")
+
+        
+    for directory_path in directories:
+        directory_path = Path(directory_path)
+        STITCH = directory_path.name + STITCH_SUFFICES
+        if directory_path.is_file():
+            # print(f"Error: path '{directory_path}' is a file.")
+            continue
+        if not directory_path.is_dir():
+            print(f"Error: Directory '{directory_path}' does not exist.")
+            sys.exit(1)
+            
+        stitched_path = directory_path / STITCH
+        filepaths = get_filepaths(directory_path)
+        check_file_and_nmea_dates(filepaths)
+        #overlap.check_ranges(filepaths)        
+        #concatenate_sorted_files(filepaths, directory_path, stitched_path)
 
 

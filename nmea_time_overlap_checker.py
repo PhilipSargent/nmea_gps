@@ -224,7 +224,7 @@ def check_ranges(filepaths):
                 print("")
 
     if not has_overlap:
-        print("\nSuccess: No time overlaps were detected between any pair of files.")
+        print("Success: No time overlaps were detected between any pair of files.")
         
     return not has_overlap
 
