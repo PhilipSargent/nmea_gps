@@ -96,6 +96,43 @@ def get_nmea_date(filepath):
     except IOError:
         return None
 
+def get_minutes_since_midnight_eet(timestamp):
+    """
+    Calculates the number of minutes elapsed since midnight for a given POSIX 
+    timestamp, adjusted for the Europe/Athens (EET/EEST) timezone.
+
+    The minutes are calculated based on the local time (HH:MM) in the EET/EEST zone.
+    
+    Args:
+        timestamp (float): The POSIX timestamp (seconds since epoch, UTC).
+
+    Returns:
+        int: The number of minutes since midnight (0-1439).
+    """
+    try:
+        # 1. Define the target timezone
+        eet_tz = zoneinfo.ZoneInfo("Europe/Athens")
+        
+        # 2. Convert the UTC timestamp to a timezone-aware datetime object in EET/EEST
+        dt_utc = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
+        dt_eet = dt_utc.astimezone(eet_tz)
+        
+        # 3. Calculate seconds since midnight in the local EET/EEST time
+        seconds_since_midnight = (
+            dt_eet.hour * 3600 +
+            dt_eet.minute * 60 +
+            dt_eet.second
+        )
+        
+        # 4. Convert to minutes 
+        minutes_since_midnight = seconds_since_midnight / 60
+        
+        return minutes_since_midnight
+
+    except Exception as e:
+        print(f"Error calculating minutes since midnight: {e}")
+        # Default fallback to 0 or another suitable error value
+        return 0
 
 def check_file_and_nmea_dates(filepaths):
     """
@@ -107,7 +144,19 @@ def check_file_and_nmea_dates(filepaths):
     And the timestamp must be between 00:00 and 02:00 (or 03:00)
     Any other mismatch is an error.
     """
-    
+    ALLOWANCE = 2 # minutes. Less tahn this triggers no warnings.
+    def explain_mismatch():
+        if os_utc_str != str(nmea_date): # nmea_date <class 'datetime.date'>
+            # But thsi is often because the timestamp on the file is only a few seconds late, 
+            # after the actual time the UTC day flipped. SO look at the file timestamp more closely
+            timestamp = os.path.getmtime(filepath)
+            dt_object = datetime.datetime.fromtimestamp(timestamp)
+            mins = get_minutes_since_midnight_eet(timestamp)
+            overdue = mins - offset*60
+            if overdue > ALLOWANCE:
+                print(f"UTC date MISMATCH in '{filepath}' OVERDUE: {overdue:.3} minutes")
+            
+        
     mismatches = 0
     
     for filepath in filepaths:
@@ -123,22 +172,11 @@ def check_file_and_nmea_dates(filepaths):
             os_date = datetime.datetime.strptime(os_date_str, "%Y%m%d").date()
             
             # NMEA date (DDMMYY) - assuming 21st century (2000-2099) for simplicity
-            nmea_date = datetime.datetime.strptime(nmea_date_str, "%d%m%y").date()
+            nmea_date = datetime.datetime.strptime(nmea_date_str, "%d%m%y").date() # because that is the NMEA format
             if os_date != nmea_date:
                 mismatches += 1
-                if os_utc_str != str(nmea_date): # nmea_date <class 'datetime.date'>
-                    # But thsi is often because the timestamp on the file is only a few seconds late, after the actual time the UTC day flipped.
-                    print(f"MISMATCH in '{filepath}':")
-                    # print(f"  {os_date} +0{offset}:00 OS Modification Date (YYYY-MM-DD) ")
-                    # print(f"  {nmea_date} NMEA Data Date (GPRMC):  (from {nmea_date_str})")
-                    timestamp = os.path.getmtime(filepath)
-                    dt_object = datetime.datetime.fromtimestamp(timestamp)
-                    print(f"    AND THIS IS NOT OK '{os_utc_str}' != '{nmea_date}' {offset} {dt_object}")
-                    
-            else:
-                pass
-                # print(f"Match for '{filepath}': Date is {os_date}")
-                
+                explain_mismatch()
+
         except ValueError as e:
             print(f"Error parsing date in '{filepath}': {e}")
             mismatches += 1
