@@ -86,12 +86,13 @@ def same_day(file_a, file_b):
         return True
     return False
               
-     
+
         
 def get_file_time_range(filepath):
     """
     Reads an NMEA file and finds the minimum and maximum time (in seconds
-    since midnight) contained within its data.
+    since midnight) contained within its data: assuming it is exactly 
+    date-ordered.
     
     BUT the lines are in time SEQUENCE and Must/should-not go backwards
     but we do often have:
@@ -103,9 +104,13 @@ def get_file_time_range(filepath):
     where the new day file has a glitch of getting a timestamp from the UTC day before. 
     We should ignore any glitch.
     
-    DOES NOT YET check that the first line and last line are in sequence, 
-    or that the file as a whole is in sequence.
-    Returns:
+    ALSO we sometimes have this at the END of the file:
+    $GPGGA,235905.00,3716.17629,N,02309.27049,E,1,09,0.84,9.2,M,32.1,M,,*52
+    $GPGGA,000002.00,3716.17617,N,02309.27071,E,1,09,0.91,9.2,M,32.1,M,,*5A
+    where this last line should clearly be in the next file, with a different UTC date,
+    or omitted.
+
+     Returns:
         (min_seconds, max_seconds) tuple, or None if no valid time data is found.
     """
     if not os.path.exists(filepath):
@@ -115,30 +120,81 @@ def get_file_time_range(filepath):
     min_time_s = float('inf')
     max_time_s = -float('inf')
     
-    times = []
-    stamps = []
     try:
         with open(filepath, 'r') as f:
-            for line in f:
-                line = line.strip()
-                # Basic check for NMEA sentence start and minimum length
-                if not line.startswith('$') or len(line) < 10:
-                    continue
-                
-                # NMEA time is typically the 2nd field (index 1)
-                parts = line.split(',')
-                if len(parts) < 2:
-                    continue
-                    
-                time_str = parts[1]
-                current_time_s = get_seconds_since_midnight(time_str)
-                times.append(current_time_s)
-                stamps.append(time_str)
-
+            lines = list(f)
     except IOError as e:
         print(f"I/O error reading {filepath}: {e}")
         return None, None
-        
+
+    times = []
+    stamps = []
+    out_seq = []
+    last_time = 0
+    last_id = ""
+    line_no = -1
+    
+    for line in lines:
+            line_no += 1
+            line = line.strip()
+            # Basic check for NMEA sentence start and minimum length
+            if not line.startswith('$') or len(line) < 10:
+                continue
+            
+            # NMEA time is typically the 2nd field (index 1)
+            parts = line.split(',')
+            if len(parts) < 2:
+                continue     
+            id = parts[0]
+            if id == "$GPGLL": # skip these. Very, very infrequent. No timestamp.
+                continue
+            time_str = parts[1]
+            current_time_s = get_seconds_since_midnight(time_str)
+            times.append(current_time_s)
+            stamps.append(time_str)
+            
+            # ALWAYS SKIP LINE 2 - almost always the wrong timestamp
+            # because it is the first GPGGA after a GPRMC, AND it is a _0300 or _0200 file.
+            # 2024-06-26_0300.nmea $GPRMC,000001.00,A,3711.68359,N,02646.23678,E,0.176,,260624,,,A*7E  0
+            # 2024-06-26_0300.nmea $GPGGA,235955.00,3711.68371,N,02646.23667,E,1,10,0.86,3.9,M,32.3,M,,*59  1
+            # 2024-06-26_0300.nmea $GPGGA,000002.00,3711.68359,N,02646.23676,E,1,10,0.86,4.2,M,32.3,M,,*50  2
+            # if line_no == 1:
+                # continue
+                
+            if line_no <=3:
+                # if current_time_s < last_time:
+                    # for ln in range(3):
+                        # try:
+                            # print(f"{filepath.name} {lines[ln].strip()}  {ln}") # line ends in \n
+                        # except:
+                            # pass
+                    # print("")
+                pass
+            else:
+                if current_time_s is not None:
+                        min_time_s = min(min_time_s, current_time_s)
+                        if current_time_s > max_time_s:
+                            line_no_max = line_no
+                            id_max = id
+                            max_time_s = max(max_time_s, current_time_s)            
+            
+                try:
+                    if current_time_s < max_time_s:
+                        out_seq.append((filepath.name, line_no, line_no_max, id, id_max, max_time_s, current_time_s))
+                        # print(f"{filepath.name} Line {line_no:4d} {line_no_max:4d} -OUT OF SEQUENCE-{id}/{id_max}  {max_time_s-current_time_s:3d}s '{current_time_s} < {max_time_s}'")
+                        
+                except:
+                     print(f"{filepath.name} Line {line_no:4d} - NONE TYPE {time_str}-{id}   '{current_time_s} < {max_time_s}'")
+            last_time = current_time_s
+            last_id = id      
+           
+    if out_seq:
+        max_jump = 0
+        for o in out_seq:
+            name, line_no, line_no_max, id, id_max, max_time_s, current_time_s = o
+            max_jump = max(max_jump, max_time_s - current_time_s)
+        print(f"{name} {len(out_seq):3d} -OUT OF SEQUENCE- lines, with up to {max_jump:3d}s offsets")
+            
     ordered = (int(times[0]), int(times[-1]))    
     stamp_pair = (format_nmea_timestamp(stamps[0]), format_nmea_timestamp(stamps[-1]))
     return ordered, stamp_pair
