@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 def format_duration(seconds):
     """Converts a duration in seconds into Hh Mm Ss format."""
@@ -54,7 +55,9 @@ def format_nmea_timestamp(t_str):
 def get_nmea_date(filepath):
     """
     Reads the file and extracts the date (DDMMYY) from the first GPRMC sentence.
-    
+    ddmmyy	Date in day, month, year format
+    $GPRMC,000001.00,A,3731.08693,N,02325.72333,E,0.107,,021125,,,A*70 => 02/11/2025
+      
     Returns:
         The date string (DDMMYY) or None if not found.
     """
@@ -75,20 +78,8 @@ def get_nmea_date(filepath):
         return None
         
 def same_day(file_a, file_b):
-    """nmeastich overlap detection gets the day wrong!
-    It only checks 'same day' files, but it selects these by filename. Which is incorrect, we should be using UTC 'days', e.g. it gets this wrong:
-    --- OVERLAP DETECTED --- 21060s - 5h 51m
-    2025-10-16_0127.nmea  ('22:27:15', '23:59:35') 1h 32m 20s
-    2025-10-16_2103.nmea ('18:08:35', '23:59:17') 5h 50m 42s 
-    as the file 2025-10-16_0127 is actually 2025/10/15 at 22:27 because of the 3 hour timezone effect.
-    DO this based on name, timestamp (?) and TZ offset on that date. Beware clock changes.
-    
-    We can also look for GPRMC statements either first or second line, to get the date
-    ddmmyy	Date in day, month, year format
-    $GPRMC,000001.00,A,3731.08693,N,02325.72333,E,0.107,,021125,,,A*70 => 02/11/2025
-    
-    every .nmea file SHOULD be all within a single UTC day.
-    """    
+    """every .nmea file SHOULD be all within a single UTC day.
+     """    
     # if file_a.name[:10] == file_b.name[:10]:
        # return True
     if get_nmea_date(file_a) == get_nmea_date(file_b):
@@ -111,6 +102,9 @@ def get_file_time_range(filepath):
     
     where the new day file has a glitch of getting a timestamp from the UTC day before. 
     We should ignore any glitch.
+    
+    DOES NOT YET check that the first line and last line are in sequence, 
+    or that the file as a whole is in sequence.
     Returns:
         (min_seconds, max_seconds) tuple, or None if no valid time data is found.
     """
@@ -140,21 +134,12 @@ def get_file_time_range(filepath):
                 current_time_s = get_seconds_since_midnight(time_str)
                 times.append(current_time_s)
                 stamps.append(time_str)
-                
-                if current_time_s is not None:
-                    min_time_s = min(min_time_s, current_time_s)
-                    max_time_s = max(max_time_s, current_time_s)
 
     except IOError as e:
         print(f"I/O error reading {filepath}: {e}")
         return None, None
         
-    if min_time_s == float('inf'):
-        return None, None
-    ordered = (int(times[0]), int(times[-1]))
-    unorderd = (int(min_time_s), int(max_time_s))
-    
-    
+    ordered = (int(times[0]), int(times[-1]))    
     stamp_pair = (format_nmea_timestamp(stamps[0]), format_nmea_timestamp(stamps[-1]))
     return ordered, stamp_pair
 
@@ -208,6 +193,7 @@ def check_ranges(filepaths):
             file_b = files[j]
             # are these the same day?
             if not same_day(file_a, file_b):
+                # skip overlap detection if they are different UTC days
                 continue
             
             # Range A is (start_A, end_A)
@@ -351,9 +337,9 @@ def create_dummy_nmea_file(filename, start_time, end_time):
     
 
 if __name__ == "__main__":
-    FILE_A = "log_a.nmea" # Range: 10:00:00 (NMEA: 100000) to 10:00:10 (NMEA: 100010)
-    FILE_B = "log_b.nmea" # Range: 10:00:05 (NMEA: 100005) to 10:00:15 (NMEA: 100015) (OVERLAPS with A)
-    FILE_C = "log_c.nmea" # Range: 10:00:20 (NMEA: 100020) to 10:00:30 (NMEA: 100030) (DISJOINT from A and B)
+    FILE_A = Path("log_a.nmea") # Range: 10:00:00 (NMEA: 100000) to 10:00:10 (NMEA: 100010)
+    FILE_B = Path("log_b.nmea") # Range: 10:00:05 (NMEA: 100005) to 10:00:15 (NMEA: 100015) (OVERLAPS with A)
+    FILE_C = Path("log_c.nmea") # Range: 10:00:20 (NMEA: 100020) to 10:00:30 (NMEA: 100030) (DISJOINT from A and B)
 
     # Create test files
     create_dummy_nmea_file(FILE_A, "100000", "100010") 

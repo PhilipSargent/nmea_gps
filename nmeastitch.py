@@ -5,13 +5,15 @@ Note that 'day' means in EET,EEST timezone
 as it works from the filenames, it is not a UTC 'day'.
 
 Rewritten from a skeleton created by Gemini.
+Then many extra functions using Gemini.
+
+Dead code checked for with vulture.
 
 Uses
 https://github.com/semuconsulting/pynmeagps
 """
 import datetime
 import os
-import time
 import sys
 import shutil
 import zoneinfo
@@ -261,12 +263,12 @@ def concatenate_sorted_files(filepaths, directory_path, stitched_path):
                         shutil.copyfileobj(ifile, afile)
             
 if __name__ == "__main__":
-    DIR = "/home/philip/gps/nmea_mirror/nmea_data/2025-11/"
+    directories = ["/home/philip/gps/nmea_mirror/nmea_data/2025-11/"]
     STITCH_SUFFICES = ".mnth.stitch.nmea"
     
     if len(sys.argv) == 2:
-        DIR = [sys.argv[1]] # list with one element
-        print(f"Processing just {DIR}")
+        directories = [sys.argv[1]] # list with one element
+        print(f"Processing just {directories}")
         
     if len(sys.argv) > 2:
         # probably a sequence of directories, e.g. nmea_data/*/*.nmea which is expanded by the shell
