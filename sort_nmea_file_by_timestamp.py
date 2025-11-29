@@ -1,5 +1,15 @@
 import os
 
+"""MUST make sure that teh file does not contain lines from a 
+different UTC DATE before doing this !
+
+ie MUST remove anything at LINE 2 which is the PREVIOUS DAY, e.g. 235953.3 
+when everything is starting at 000000.1
+
+MUST DETECT if this bogus previous day line is GPRMC which has the DATE, as that woukd then be
+quiet wrong.
+"""
+
 def read_file_lines(filepath):
     """
     Reads a file into a list of strings, stripping leading/trailing whitespace.
