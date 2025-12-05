@@ -1,4 +1,5 @@
 import re
+import sys
 from datetime import datetime, timedelta
 
 def analyze_ping_failures(log_content):
@@ -130,7 +131,18 @@ def print_report(periods):
 
 # Main execution block
 if __name__ == "__main__":
-    log_file_path = "nmealogger_ok.txt"
+    # 1. Set a default path (e.g., the uploaded file name)
+    log_file_path = "nmealogger_ok.txt" 
+    
+    # 2. Check if a command-line argument was provided
+    if len(sys.argv) > 1:
+        log_file_path = sys.argv[1]
+    elif len(sys.argv) == 1:
+        # If no argument is provided, inform the user about the default/usage.
+        print(f"No file path provided. Using default file: {log_file_path}")
+        print(f"To use a different file, run: python {sys.argv[0]} <path/to/log_file.txt>\n")
+
+
     try:
         with open(log_file_path, 'r', encoding='utf-8') as f:
             log_content = f.read()
@@ -139,6 +151,7 @@ if __name__ == "__main__":
         print_report(failure_periods)
 
     except FileNotFoundError:
-        print(f"Error: The file '{log_file_path}' was not found. Please ensure it is available.")
+        print(f"\nError: The file '{log_file_path}' was not found.")
+        print("Please ensure the file path is correct.")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
