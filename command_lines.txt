@@ -1,0 +1,6 @@
+uv run gpx_merge_sort.py -o 2025-11.mnth.gpx ../nmea_data/2025-11/2025-11*.day.gpx
+
+uv run gpx_merge_sort.py -o 2025.gpx ../nmea_data/2025*mnth.gpx ../2025-crews/*mashup.gpx
+
+uv run gpx_merge_sort.py -o done2.gpx 2025-11-sum.gpx
+
