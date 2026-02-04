@@ -17,8 +17,53 @@ METERS_PER_DEGREE_AT_EQUATOR = 111320.0
 # Default HDOP value to use when the tag is missing or invalid
 DEFAULT_HDOP = 4.0
 
-# --- WEIGHTED STATISTICAL CALCULATIONS ---
+# --- NEW NUMERICAL & STATISTICAL FUNCTIONS ---
 
+def calculate_empirical_cep(lat_data, lon_data, mean_lat, mean_lon, percentile=0.6826):
+    """
+    Finds the radius of a circle containing exactly the specified percentage of points.
+    Does not assume a normal distribution.
+    """
+    if not lat_data:
+        return 0.0
+    
+    distances_m = []
+    
+    for lat, lon in zip(lat_data, lon_data):
+        # Calculate offsets from mean in meters
+        delta_lat = (lat - mean_lat) * METERS_PER_DEGREE_AT_EQUATOR
+        delta_lon = (lon - mean_lon) * METERS_PER_DEGREE_AT_EQUATOR * math.cos(math.radians(mean_lat))
+        
+        # Euclidean distance of this specific point from the mean
+        dist = math.sqrt(delta_lat**2 + delta_lon**2)
+        distances_m.append(dist)
+    
+    # Sort distances to find the percentile boundary
+    distances_m.sort()
+    
+    # Identify the index that marks the percentile (e.g., 68.26%)
+    idx = min(len(distances_m) - 1, max(0, int(len(distances_m) * percentile)))
+    return distances_m[idx]
+
+def calculate_weighted_sample_stddev(values, hdops, weighted_mean):
+    """
+    Calculates the weighted sample standard deviation (N-1 logic).
+    Useful for estimating the spread of a larger path from a limited sample of points.
+    """
+    if len(values) < 2:
+        return 0.0
+
+    weights = _get_weights(hdops)
+    weighted_variance_num = sum(w * (x - weighted_mean)**2 for w, x in zip(weights, values))
+    sum_of_weights = sum(weights)
+    
+    # Sample variance correction for weighted data:
+    # Var = [Sum(w * (x - mean)^2) / Sum(w)] * [N / (N-1)]
+    n = len(values)
+    variance = (weighted_variance_num / sum_of_weights) * (n / (n - 1))
+    
+    return math.sqrt(variance)
+    
 def _get_weights(hdops):
     """
     Calculates weights for each point. Weight is proportional to 1 / HDOP^2.
@@ -56,29 +101,6 @@ def calculate_weighted_mean(values, hdops):
     return weighted_mean
 
 
-def calculate_weighted_stddev(values, hdops, weighted_mean):
-    """
-    Calculates the weighted standard deviation (population formula) of a list of 
-    values using HDOP-derived weights.
-    """
-    if len(values) < 2:
-        return 0.0
-
-    weights = _get_weights(hdops)
-    
-    # Calculate weighted sum of squared differences: Sum(w * (x - mean)^2)
-    weighted_variance_numerator = sum(w * (x - weighted_mean)**2 for w, x in zip(weights, values))
-    
-    sum_of_weights = sum(weights)
-    
-    # Use population-based variance: Var = Sum(w * (x - mean)^2) / Sum(w)
-    if sum_of_weights == 0:
-        return 0.0
-    
-    weighted_variance = weighted_variance_numerator / sum_of_weights
-    
-    # Weighted Standard Deviation is the square root of the variance
-    return math.sqrt(weighted_variance)
 
 # --- UTILITY FUNCTION: DEGREE TO METER CONVERSION ---
 def convert_degrees_to_meters(degrees_lat, degrees_lon, mean_lat):
@@ -277,9 +299,9 @@ def analyze_gpx_file(gpx_path):
                 mean_lon = calculate_weighted_mean(lon_data, hdop_data)
                 mean_ele = calculate_weighted_mean(ele_data, hdop_data)
                 
-                stddev_lat = calculate_weighted_stddev(lat_data, hdop_data, mean_lat)
-                stddev_lon = calculate_weighted_stddev(lon_data, hdop_data, mean_lon)
-                stddev_ele = calculate_weighted_stddev(ele_data, hdop_data, mean_ele)
+                stddev_lat = calculate_weighted_sample_stddev(lat_data, hdop_data, mean_lat)
+                stddev_lon = calculate_weighted_sample_stddev(lon_data, hdop_data, mean_lon)
+                stddev_ele = calculate_weighted_sample_stddev(ele_data, hdop_data, mean_ele)
 
                 # Dynamic Formatting Setup: Lat/Lon usually requires 6+ decimals, Ele 2+
                 lat_lon_format = get_precision_and_format(stddev_lat, min_decimals=6)
@@ -305,6 +327,24 @@ def analyze_gpx_file(gpx_path):
                 # Standard character string for plus-minus and sigma: "± 2σ"
                 pm_two_sigma = "± 2StdDev" 
 
+                # 1. Standard Deviation (Degrees)
+                stddev_lat = calculate_weighted_sample_stddev(lat_data, hdop_data, mean_lat)
+                stddev_lon = calculate_weighted_sample_stddev(lon_data, hdop_data, mean_lon)
+                
+                # 2. Convert StdDev to Meters (linear spread)
+                stddev_lat_m, stddev_lon_m = convert_degrees_to_meters(stddev_lat, stddev_lon, mean_lat)
+                
+                # 3. Numerical CEP Calculation (Actual point count)
+                actual_cep_68 = calculate_empirical_cep(lat_data, lon_data, mean_lat, mean_lon, 0.6826)
+
+                print("    --- Weighted Statistics ---")
+                print(f"      Lat StdDev (Sample): {stddev_lat_m:.2f} m")
+                print(f"      Lon StdDev (Sample): {stddev_lon_m:.2f} m")
+                
+                print("    --- Empirical Error Analysis ---")
+                print(f"      Numerical CEP (68.26%): {actual_cep_68:.2f} m radius")
+                print(f"      (This circle contains {int(len(lat_data) * 0.6826)} of {len(lat_data)} points)")
+                
                 print("    --- Weighted Statistics ---")
                 
                 # Report Latitude 
