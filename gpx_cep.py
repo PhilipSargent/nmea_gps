@@ -11,7 +11,6 @@ METERS_PER_DEGREE_AT_EQUATOR = 111320.0
 DEFAULT_HDOP = 4.0
 
 def _get_weights(hdops):
-    """Weight proportional to 1/HDOP^2."""
     weights = []
     for hdop in hdops:
         hdop = hdop if hdop > 0 else DEFAULT_HDOP
@@ -19,7 +18,6 @@ def _get_weights(hdops):
     return weights
 
 def calculate_weighted_mean(values, hdops):
-    """Calculates the weighted average."""
     if not values: return 0.0
     weights = _get_weights(hdops)
     weighted_sum = sum(w * x for w, x in zip(weights, values))
@@ -27,25 +25,21 @@ def calculate_weighted_mean(values, hdops):
     return weighted_sum / sum_of_weights if sum_of_weights != 0 else 0.0
 
 def calculate_weighted_sample_stddev(values, hdops, weighted_mean):
-    """Calculates weighted sample standard deviation (N-1)."""
     if len(values) < 2: return 0.0
     weights = _get_weights(hdops)
     weighted_variance_num = sum(w * (x - weighted_mean)**2 for w, x in zip(weights, values))
     sum_w = sum(weights)
     if sum_w == 0: return 0.0
     n = len(values)
-    # Corrected for sample bias
     variance = (weighted_variance_num / sum_w) * (n / (n - 1))
     return math.sqrt(variance)
 
 def convert_degrees_to_meters(degrees_lat, degrees_lon, mean_lat):
-    """Converts degree spread to meters."""
     meters_lat = degrees_lat * METERS_PER_DEGREE_AT_EQUATOR
     meters_lon = degrees_lon * METERS_PER_DEGREE_AT_EQUATOR * math.cos(math.radians(mean_lat))
     return meters_lat, meters_lon
 
 def calculate_empirical_radius(lat_data, lon_data, mean_lat, mean_lon, percentile=0.6826):
-    """Numerical algorithm to find the radius containing a specific % of points."""
     if not lat_data: return 0.0
     distances_m = []
     cos_lat = math.cos(math.radians(mean_lat))
@@ -58,7 +52,6 @@ def calculate_empirical_radius(lat_data, lon_data, mean_lat, mean_lon, percentil
     return distances_m[idx]
 
 def get_xml_element_text(element, tag, namespace):
-    """Safely find and return text content of a child element."""
     child = element.find(tag, namespace)
     return child.text.strip() if child is not None and child.text else None
 
@@ -112,16 +105,32 @@ def analyze_gpx_file(gpx_path):
 
             start_time = times[0]
             evol_times, evol_cep, evol_cse = [], [], []
+            thresholds = [0.5, 0.4, 0.3, 0.2, 0.1]
+            milestones = {}
             for i in range(2, len(lat_data) + 1):
                 elapsed = (times[i-1] - start_time).total_seconds()
+                sub_lat, sub_lon, sub_hdop = lat_data[:i], lon_data[:i], hdop_data[:i]
+                m_lat = calculate_weighted_mean(sub_lat, sub_hdop)
+                m_lon = calculate_weighted_mean(sub_lon, sub_hdop)
+                c_val = calculate_empirical_radius(sub_lat, sub_lon, m_lat, m_lon, 0.6826)
+                cse_val = c_val / math.sqrt(len(sub_lat))
+
+                for t in thresholds:
+                    if t not in milestones and cse_val < t:
+                        milestones[t] = elapsed
+
                 if elapsed >= 30:
-                    sub_lat, sub_lon, sub_hdop = lat_data[:i], lon_data[:i], hdop_data[:i]
-                    m_lat = calculate_weighted_mean(sub_lat, sub_hdop)
-                    m_lon = calculate_weighted_mean(sub_lon, sub_hdop)
-                    c_val = calculate_empirical_radius(sub_lat, sub_lon, m_lat, m_lon, 0.6826)
                     evol_times.append(elapsed)
                     evol_cep.append(c_val)
-                    evol_cse.append(c_val / math.sqrt(len(sub_lat)))
+                    evol_cse.append(cse_val)
+
+            if milestones:
+                print('  Time for Circular Std Error (SEM) to drop below:')
+                for t in thresholds:
+                    if t in milestones:
+                        print(f'    <{t}m: {int(milestones[t])} seconds')
+                    else:
+                        print(f'    <{t}m: Not reached')
 
             if evol_times:
                 fig, ax1 = plt.subplots(figsize=(10, 6))
