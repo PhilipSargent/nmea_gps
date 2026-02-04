@@ -34,8 +34,9 @@ from pynmeagps.nmeahelpers import planar, haversine
 M_PER_NM = 1852 # 1929 First International Extraordinary Hydrographic Conference in Monaco 
 
 JIGGLE = 3.4/5 # anything within this is considered the "same" point. This is the fifth-width of the boat
+JIGGLE = 0.01
 STACK_MINUTES = 90 # how long we wait before flushing the stack
-MAXSTACK = 200 # maxium bumber of points to amalgamate even if they are very close
+MAXSTACK = 400 # maxium bumber of points to amalgamate even if they are very close
 MIDNIGHT = time(0, 0, 0, 0) # midnight
 NEAR_MIDNIGHT = time(0, 23, 59, 0) # one minute to midnight
 NEAR_DAYLENGTH = timedelta(hours=23) # nearly a whole day
@@ -166,6 +167,15 @@ class Stack:
 
     def push(self, msg_item):
         msg, dat = msg_item
+        try:
+            alt = float(msg.alt)
+            lat = float(msg.lat)
+            lon = float(msg.lon)
+        except Exception as e:
+            print(f" ! Exception. {alt} or {lat} or {lon} is not a number.")
+            return
+  
+  
         if self.is_full():
             print("Stack Overflow! Cannot add item.", flush=True)
         else:
@@ -272,6 +282,7 @@ class BoundingBox:
         self._maxlon = 0
 
     def update(self, lat, lon):
+      
         if lat > self._maxlat:
             self._maxlat = lat
         if lat < self._minlat:
@@ -477,21 +488,24 @@ class NMEATracker:
 
                     dat = datetime.combine(self._thisday, msg.time, timezone.utc)
  
-                    lat = strim(msg.lat)
-                    lon = strim(msg.lon)
-                    bb.update(lat, lon) # for the whole file, not just the stack
+                    try:
+                        lat = strim(msg.lat)
+                        lon = strim(msg.lon)
+                        bb.update(lat, lon) # for the whole file, not just the stack
 
-                    msg_item = (msg, dat)
-                    if time_diff(msg.time, prev_time) > ONE_HOUR: 
-                        print(f".. Gap, start new <trkseg> {time_diff(msg.time, prev_time)} line:{n:4} {Path(self._infile.name).stem}")
-                        self.restart_stack(msg_item)
-                        self._trkfile.write(get_trkseg())
-                        month_filehandle.write(get_trkseg())
-                        tp += 1
-                    else:    
-                        if not self._gpsstack.it_fits(msg_item):
+                        msg_item = (msg, dat)
+                        if time_diff(msg.time, prev_time) > ONE_HOUR: 
+                            print(f".. Gap, start new <trkseg> {time_diff(msg.time, prev_time)} line:{n:4} {Path(self._infile.name).stem}")
                             self.restart_stack(msg_item)
+                            self._trkfile.write(get_trkseg())
+                            month_filehandle.write(get_trkseg())
                             tp += 1
+                        else:    
+                            if not self._gpsstack.it_fits(msg_item):
+                                self.restart_stack(msg_item)
+                                tp += 1
+                    except Exception as e:
+                        print(f" ! Exception {e}")
                     prev_time = msg.time
                     i += 1
             except (nme.NMEAMessageError, nme.NMEATypeError, nme.NMEAParseError) as err:
