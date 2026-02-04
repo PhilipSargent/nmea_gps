@@ -6,13 +6,12 @@ import math
 from datetime import datetime
 import matplotlib.pyplot as plt
 
-# GPX Namespace definition
 GPX_NS = {'gpx': 'http://www.topografix.com/GPX/1/1'}
-METERS_PER_DEGREE_AT_EQUATOR = 111320.0 
+METERS_PER_DEGREE_AT_EQUATOR = 111320.0
 DEFAULT_HDOP = 4.0
 
 def _get_weights(hdops):
-    """Calculates weights as 1/HDOP^2."""
+    """Weight proportional to 1/HDOP^2."""
     weights = []
     for hdop in hdops:
         hdop = hdop if hdop > 0 else DEFAULT_HDOP
@@ -20,7 +19,7 @@ def _get_weights(hdops):
     return weights
 
 def calculate_weighted_mean(values, hdops):
-    """Calculates the weighted mean."""
+    """Calculates the weighted average."""
     if not values: return 0.0
     weights = _get_weights(hdops)
     weighted_sum = sum(w * x for w, x in zip(weights, values))
@@ -35,18 +34,18 @@ def calculate_weighted_sample_stddev(values, hdops, weighted_mean):
     sum_w = sum(weights)
     if sum_w == 0: return 0.0
     n = len(values)
-    # Corrected for sample bias: (Sum/Sum_w) * (N/(N-1))
+    # Corrected for sample bias
     variance = (weighted_variance_num / sum_w) * (n / (n - 1))
     return math.sqrt(variance)
 
 def convert_degrees_to_meters(degrees_lat, degrees_lon, mean_lat):
-    """Converts degree differences to meters."""
+    """Converts degree spread to meters."""
     meters_lat = degrees_lat * METERS_PER_DEGREE_AT_EQUATOR
     meters_lon = degrees_lon * METERS_PER_DEGREE_AT_EQUATOR * math.cos(math.radians(mean_lat))
     return meters_lat, meters_lon
 
-def calculate_empirical_cep(lat_data, lon_data, mean_lat, mean_lon, percentile=0.6826):
-    """Numerically finds the radius containing a specific percentage of points."""
+def calculate_empirical_radius(lat_data, lon_data, mean_lat, mean_lon, percentile=0.6826):
+    """Numerical algorithm to find the radius containing a specific % of points."""
     if not lat_data: return 0.0
     distances_m = []
     cos_lat = math.cos(math.radians(mean_lat))
@@ -59,37 +58,34 @@ def calculate_empirical_cep(lat_data, lon_data, mean_lat, mean_lon, percentile=0
     return distances_m[idx]
 
 def get_xml_element_text(element, tag, namespace):
+    """Safely find and return text content of a child element."""
     child = element.find(tag, namespace)
     return child.text.strip() if child is not None and child.text else None
 
 def analyze_gpx_file(gpx_path):
-    print(f"--- Analyzing GPX File: {os.path.basename(gpx_path)} ---")
+    print(f'--- Analyzing GPX File: {os.path.basename(gpx_path)} ---')
     try:
         tree = ET.parse(gpx_path)
         root = tree.getroot()
     except Exception as e:
-        print(f"Error: Could not parse GPX file. {e}")
+        print(f'Error: {e}')
         return
 
     tracks = root.findall('gpx:trk', GPX_NS)
     if not tracks: return
 
-    segment_evolution_data = []
-
     for trk_idx, trk in enumerate(tracks, 1):
-        trk_name = get_xml_element_text(trk, 'gpx:name', GPX_NS) or f"Track {trk_idx}"
+        trk_name = get_xml_element_text(trk, 'gpx:name', GPX_NS) or f'Track {trk_idx}'
         segments = trk.findall('gpx:trkseg', GPX_NS)
-        
         for seg_idx, trkseg in enumerate(segments, 1):
             lat_data, lon_data, hdop_data, times = [], [], [], []
-            
             for pt in trkseg.findall('gpx:trkpt', GPX_NS):
                 try:
-                    lat, lon = float(pt.attrib.get('lat')), float(pt.attrib.get('lon'))
+                    lat = float(pt.attrib.get('lat'))
+                    lon = float(pt.attrib.get('lon'))
                     time_str = get_xml_element_text(pt, 'gpx:time', GPX_NS)
                     hdop_text = get_xml_element_text(pt, 'gpx:hdop', GPX_NS)
                     hdop = float(hdop_text) if hdop_text else DEFAULT_HDOP
-                    
                     if hdop <= 4.0 and time_str:
                         dt = datetime.strptime(time_str.replace('Z', ''), '%Y-%m-%dT%H:%M:%S')
                         lat_data.append(lat)
@@ -100,56 +96,50 @@ def analyze_gpx_file(gpx_path):
 
             if len(lat_data) < 2: continue
 
-            # 1. Calculate Final Stats
             mean_lat = calculate_weighted_mean(lat_data, hdop_data)
             mean_lon = calculate_weighted_mean(lon_data, hdop_data)
             std_lat = calculate_weighted_sample_stddev(lat_data, hdop_data, mean_lat)
             std_lon = calculate_weighted_sample_stddev(lon_data, hdop_data, mean_lon)
             std_lat_m, std_lon_m = convert_degrees_to_meters(std_lat, std_lon, mean_lat)
-            
-            num_cep = calculate_empirical_cep(lat_data, lon_data, mean_lat, mean_lon, 0.6826)
-            theoretical_cep = math.sqrt(std_lat_m**2 + std_lon_m**2)
+            num_cep = calculate_empirical_radius(lat_data, lon_data, mean_lat, mean_lon, 0.6826)
+            cse = num_cep / math.sqrt(len(lat_data))
 
-            print(f"\n[ {trk_name} - Segment {seg_idx} ]")
-            print(f"  Points Analyzed: {len(lat_data)}")
-            print(f"  Sample StdDev: Lat={std_lat_m:.2f}m, Lon={std_lon_m:.2f}m")
-            print(f"  Numerical CEP (68.26%): {num_cep:.2f} m")
-            print(f"  Theoretical CEP (Formulaic): {theoretical_cep:.2f} m")
-            print(f"  Difference (Actual vs Theory): {abs(num_cep - theoretical_cep):.2f} m")
+            print(f'\n[ {trk_name} - Segment {seg_idx} ]')
+            print(f'  Points: {len(lat_data)}')
+            print(f'  Numerical CEP (68.26%): {num_cep:.2f} m (Precision)')
+            print(f'  Circular Std Error: {cse:.2f} m (Certainty of Mean)')
+            print(f'  Sample StdDev: Lat={std_lat_m:.2f}m, Lon={std_lon_m:.2f}m')
 
-            # 2. Calculate CEP Evolution (from 30s onward)
             start_time = times[0]
-            evol_x, evol_y = [], []
+            evol_times, evol_cep, evol_cse = [], [], []
             for i in range(2, len(lat_data) + 1):
                 elapsed = (times[i-1] - start_time).total_seconds()
                 if elapsed >= 30:
-                    # Current subset statistics
                     sub_lat, sub_lon, sub_hdop = lat_data[:i], lon_data[:i], hdop_data[:i]
                     m_lat = calculate_weighted_mean(sub_lat, sub_hdop)
                     m_lon = calculate_weighted_mean(sub_lon, sub_hdop)
-                    cep = calculate_empirical_cep(sub_lat, sub_lon, m_lat, m_lon, 0.6826)
-                    evol_x.append(elapsed)
-                    evol_y.append(cep)
-            
-            if evol_x:
-                segment_evolution_data.append((f"{trk_name} S{seg_idx}", evol_x, evol_y))
+                    c_val = calculate_empirical_radius(sub_lat, sub_lon, m_lat, m_lon, 0.6826)
+                    evol_times.append(elapsed)
+                    evol_cep.append(c_val)
+                    evol_cse.append(c_val / math.sqrt(len(sub_lat)))
 
-    # --- PLOTTING ---
-    if segment_evolution_data:
-        plt.figure(figsize=(10, 6))
-        for label, x, y in segment_evolution_data:
-            plt.plot(x, y, label=label)
-        plt.axhline(y=0, color='black', linestyle='-', alpha=0.3)
-        plt.xlabel("Seconds from Start")
-        plt.ylabel("Cumulative Numerical CEP (68.26%) [m]")
-        plt.title("Evolution of GPS Precision (CEP) Over Time")
-        plt.legend()
-        plt.grid(True, which='both', linestyle='--', alpha=0.5)
-        plt.savefig("cep_evolution.png")
-        print(f"\nPlot saved as 'cep_evolution.png'")
+            if evol_times:
+                fig, ax1 = plt.subplots(figsize=(10, 6))
+                ax1.set_xlabel('Seconds from Start')
+                ax1.set_ylabel('CEP 68.26% (Precision) [m]', color='tab:blue')
+                ax1.plot(evol_times, evol_cep, color='tab:blue', label='CEP (Scatter)')
+                ax1.tick_params(axis='y', labelcolor='tab:blue')
+                ax1.grid(True, linestyle='--', alpha=0.5)
+                ax2 = ax1.twinx()
+                ax2.set_ylabel('Std Error (Certainty) [m]', color='tab:red')
+                ax2.plot(evol_times, evol_cse, color='tab:red', linestyle='--', label='Std Error (Certainty)')
+                ax2.tick_params(axis='y', labelcolor='tab:red')
+                plt.title(f'Precision vs. Certainty Evolution\n{trk_name}')
+                plt.savefig(f'evolution_seg_{trk_idx}_{seg_idx}.png')
+                print(f'  Plot saved to evolution_seg_{trk_idx}_{seg_idx}.png')
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="GPX Weighted Mean and CEP Analysis")
-    parser.add_argument("gpx_file", help="Path to GPX file")
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('gpx_file')
     args = parser.parse_args()
     analyze_gpx_file(args.gpx_file)
