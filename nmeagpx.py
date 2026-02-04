@@ -34,7 +34,7 @@ from pynmeagps.nmeahelpers import planar, haversine
 M_PER_NM = 1852 # 1929 First International Extraordinary Hydrographic Conference in Monaco 
 
 JIGGLE = 3.4/5 # anything within this is considered the "same" point. This is the fifth-width of the boat
-JIGGLE = 0.01
+#JIGGLE = 0.01
 STACK_MINUTES = 90 # how long we wait before flushing the stack
 MAXSTACK = 400 # maxium bumber of points to amalgamate even if they are very close
 MIDNIGHT = time(0, 0, 0, 0) # midnight
@@ -410,7 +410,11 @@ class NMEATracker:
         for _, msg in self._nmeareader:  # invokes iterator method
             n += 1
             try:
-                d = msg.__dict__
+                try:
+                    d = msg.__dict__
+                except Exception as e:
+                    print(f" ! bad msg {e} at {n=}")
+                    continue
                 if 'date' in d and d['date'] != "": # only RMC, but get it anywhere if it exists
                    first_GGA = True # first GGA after any RMC
                    # prev_time = msg.time # don't update, we do not use the time of the RMC msg
