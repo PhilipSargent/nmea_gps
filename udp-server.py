@@ -1,5 +1,6 @@
 import socket
 import datetime
+import time
 from pathlib import Path
 
 # Configuration
@@ -45,6 +46,10 @@ FLUSH_THRESHOLD = 50  # Number of lines to buffer in RAM before writing to SD
 client_buffers = {}   # Holds the actual text data: {ip: ["line1", "line2"]}
 client_sessions = {}  # Holds the file paths: {ip: Path}
 
+# PPS Tracking Variables
+packet_count = 0
+last_report_time = time.time()
+
 # Create UDP socket
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -62,6 +67,18 @@ while True:
     try:
         raw_data, addr = s.recvfrom(4096)
         ip_address = addr[0]
+        packet_count += 1  # Increment counter for every packet received
+
+        # --- PPS Reporting Logic ---
+        current_time = time.time()
+        elapsed = current_time - last_report_time
+        
+        if elapsed >= 1.0:  # Every 1 second, print the stats
+            pps = packet_count / elapsed
+            print(f"[STATS] Current Throughput: {pps:.1f} packets/sec")
+            packet_count = 0
+            last_report_time = current_time
+        # ---------------------------
         
         # Initialize session and buffer for new IPs
         if ip_address not in client_sessions:
@@ -90,7 +107,9 @@ while True:
             with target_path.open(mode="a", encoding="utf-8") as f:
                 f.writelines(client_buffers[ip_address])
             
-            print(f"[FLUSH] Saved {len(client_buffers[ip_address])} lines for {ip_address}")
+            # print(f"[FLUSH] Saved {len(client_buffers[ip_address])} lines for {ip_address}")
+            
+            
             
             # Clear the RAM buffer
             client_buffers[ip_address] = []
