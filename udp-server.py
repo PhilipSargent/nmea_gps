@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 # Configuration
-PORT = 30305
+PORT = 30304
 client_sessions = {}
 
 # Optimization Tips to Maximize PPS:
