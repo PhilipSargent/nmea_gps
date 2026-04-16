@@ -48,10 +48,11 @@ uv run nmeagpx.py /home/philip/gps/nmea_data/2024-12/ '.day' '.nmea'
 Some of the scripts run on a GL.INET "mango" router. This router is permanently mounted on the boat
 and recieves NMEA sentences by tcp from the Quark-Elec A026 AIS/GPS box which has a VHF antenna for AIS
 and a GPS antenna.
+[to be done: modify this to accept UDP NMEA statements from two mobile phones.]
 
 Things crash and hang frequently so there are timeout checks and the router is rebooted twice a day. Also the .nmea
-files are restarted once they reach a certain size. There are cron jobs which manage this aslo rsync the data to
-a server at nmea.klebos.eu whcih is hosted by Mythic Beasts.
+files are restarted once they reach a certain size. There are cron jobs which manage this also rsync the data to
+a server at nmea.klebos.eu which  is hosted by Mythic Beasts.
 
 EXAMPLE COMMANDS
 
