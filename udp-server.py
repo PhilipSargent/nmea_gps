@@ -73,7 +73,7 @@ while True:
         current_time = time.time()
         elapsed = current_time - last_report_time
         
-        if elapsed >= 1.0:  # Every 1 second, print the stats
+        if elapsed >= 5.0:  # Every 5 second, print the stats
             pps = packet_count / elapsed
             print(f"[STATS] Current Throughput: {pps:.1f} packets/sec")
             packet_count = 0
