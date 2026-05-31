@@ -1,6 +1,7 @@
 phone_*/
 phone_*
 2026_*/
+*.Identifier
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
