@@ -2,7 +2,7 @@
 Various bits of code to archive my GPS tracks on my boat. 
 Also some fragments trying to get around Navionics dreadful support for external GNSS feed.
 
-The directory [Snowwhite]\\wsl.localhost\Ubuntu-24.04\home\philip\gps\nmea_mirror\ 
+The directory [SnowGrey][Snowwhite]\\wsl.localhost\Ubuntu-24.04\home\philip\gps\nmea_mirror\ 
 is a reflection of
 [extroot]/upper/root/
 on the microSD card plugged in to the Mango router 'guava' on the boat, 
