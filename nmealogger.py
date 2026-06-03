@@ -57,6 +57,7 @@ totqk = 0
 # Earth constant: Approximate meters per degree of latitude at the equator (WGS84 standard)
 METERS_PER_DEGREE_AT_EQUATOR = 111320.0 
 METERS_PER_MINUTE_AT_EQUATOR = METERS_PER_DEGREE_AT_EQUATOR/60 # 1855m in a nautical mile, apparently. Defined as 1852 exactly by wgs84
+# (Greece is roughly 37-41 degrees North, cos(rad) is ~0.78)
 
 HDOP_LIMIT = 3
 MAX_WAIT_GNSS = 10 * 60 # 10 minutes in seconds
@@ -164,9 +165,16 @@ class Stack:
         return bestnmea
 
     def is_compact(self):
-        # if all contents are close in time and space
+        """ is_compact if all contents are close in time and space
+        
+        The stack should be the last 6 readings, ie all within a second or so.
+        If there is a big range, then maybe the QK has died in th emiddle and come back, in which case we should really
+        use ALL the data in the stack, not just the most recent.
+        """
+        
         # double dictionary is a bit convoluted
-        # lat lon ranges are in decimal minutes of arc, i.e. nautical miles for lat
+        # lat lon ranges are in decimal minutes of arc, i.e. nautical miles for lat # NOT TRUE ?!
+        # now assuming they are in decimal dgrees
         s = {}
         item = {}
         DIMENSIONS = ("lat", "lon", "t")
@@ -178,17 +186,18 @@ class Stack:
             
         for i in self.items:    
             raw, hdop, lat, lon, t = i
-            item["lat"] = float(lat) * METERS_PER_MINUTE_AT_EQUATOR
-            item["lon"] = float(lon) * METERS_PER_MINUTE_AT_EQUATOR  # * math.cos(math.radians(mean_lat)) # approx.
+            item["lat"] = float(lat) * METERS_PER_DEGREE_AT_EQUATOR
+            item["lon"] = float(lon) * METERS_PER_DEGREE_AT_EQUATOR * 0.78 # * math.cos(math.radians(mean_lat)) # approx.
             item["t"] = (t.hour * 3600) + (t.minute * 60) + t.second
             for b in DIMENSIONS:
                 s[b]["max"] = max(item[b], s[b]["max"])
                 s[b]["min"] = min(item[b], s[b]["min"])
                 s[b]["range"] = s[b]["max"] - s[b]["min"]
-        if (s["t"]["range"] > 5.0) or (s["lat"]["range"] > 0.5) or (s["lon"]["range"] > 0.5):
-            print(f"at {t.hour:02}:{t.minute:02}:{t.second:02}", end="")
-            for c in DIMENSIONS:
-                print(f' -- {c} range: {s[c]["range"]:2f}', end="")
+        if (s["t"]["range"] > 5.0) or (s["lat"]["range"] > 200) or (s["lon"]["range"] > 200):
+            print(f"{my_now()} Stack {len(self.items)} at {t.hour:02}:{t.minute:02}:{t.second:02}", end="")
+            print(f' -- {"lat"} range: {s["lat"]["range"]:2f} m', end="")
+            print(f' -- {"lon"} range: {s["lon"]["range"]:2f} m', end="")
+            print(f' -- {"t"} range: {s["t"]["range"]:.1f} s', end="")
             print("")
             return False
         return True

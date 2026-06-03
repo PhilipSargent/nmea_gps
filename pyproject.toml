@@ -4,4 +4,7 @@ version = "0.1.0"
 description = "My nmea logging and converting to gpx code"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "psutil>=7.2.2",
+    "pynmeagps>=1.1.4",
+]
