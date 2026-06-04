@@ -34,6 +34,8 @@ Document how to use the sort_nmea_file_by_timestamp.py program with the *_mashup
 
 
 INSTRUCTIONS
+use FileZilla to get the files from djangotest nmea
+
 run nmeastich to collect all the days of a month to one file per day
 run like this:
 cd gps/nmea_mirror/nmea_gps

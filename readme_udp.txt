@@ -8,7 +8,12 @@ papaya has almost no software installed other than extroot.
 Installed ncat (not netcat) 1/6/2026   using opkg.       
 
 OK, using papaya I have it all working reliably. Ch11 and n only, no n/g, and the correct wifi name and password
-(both guava and papaya now Ellin:54ellin54 )                              
+(both guava and papaya now Ellin:54ellin54 )    
+HOWEVER (3rd June) guava won't connect to PhilipPixel9 to get internet with N only !
+So had to revert to g/n and 20/40 channel width.
+BUT it is more importaant to actually record the data than torsync it, so now (2026-06-03)
+keeping on 11N only and 20Mbps. 
+I will sync to djangotest manually via laptop - though it does connect intermittently, whcih is all we need.                        
 
 Have to do this when I swap between guava & papaya:
 ssh-keygen -f '/home/philip/.ssh/known_hosts' -R '192.168.8.1'                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
