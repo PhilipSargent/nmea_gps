@@ -74,6 +74,7 @@ def main():
 
     last_day = None
     af = None
+    last_raw_sentence = None  # Track the previous sentence to discard duplicates
 
     try:
         while True:
@@ -88,6 +89,15 @@ def main():
                 for (raw, parsed_data) in nmr:
                     if not parsed_data:
                         continue
+                    
+                    # --- DE-DUPLICATION CHECK ---
+                    # Clean the raw string line for comparison
+                    current_sentence = raw.decode('utf-8', errors='ignore').strip()
+                    if current_sentence == last_raw_sentence:
+                        continue  # Silently skip the duplicate transmission
+                    
+                    # Update memory tracking for the next incoming sentence
+                    last_raw_sentence = current_sentence
                     
                     d = parsed_data.__dict__
                     
@@ -134,15 +144,14 @@ def main():
                         if af:
                             try:
                                 # Safe string parsing directly from the raw NMEA payload byte-string
-                                # This avoids float-conversion artifacts and keeps standard NMEA DDMM.MMMM format
-                                raw_str = raw.decode('utf-8', errors='ignore').strip()
-                                parts = raw_str.split(',')
+                                # This avoids float-conversion artifacts and keeps standard NMEA DDMM.
+                                parts = current_sentence.split(',')
                                 
                                 if len(parts) >= 7 and "RMC" in parts[0]:
-                                    time_field = parts[1]      # e.g., 192735.00
-                                    lat_field = parts[3]       # e.g., 3731.067914
+                                    time_field = parts[1]      # e.g., 193332.00
+                                    lat_field = parts[3]       # e.g., 3731.067570
                                     ns_field = parts[4]        # N
-                                    lon_field = parts[5]       # e.g., 02325.714881
+                                    lon_field = parts[5]       # e.g., 02325.715887
                                     ew_field = parts[6]        # E
                                     
                                     # Strip trailing artificial precision if needed, matching your strim rules
@@ -176,6 +185,7 @@ def main():
         print(f"\n{my_now()} -- Stopped by Keyboard Interrupt.", flush=True)
     finally:
         if af: af.close()
+        sock.close()
         sock.close()
 if __name__ == "__main__":
     main()
