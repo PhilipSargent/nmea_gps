@@ -69,7 +69,12 @@ def main():
     
     # Set up UDP Socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind((UDP_IP, UDP_PORT))
+    try:
+        sock.bind((UDP_IP, UDP_PORT))
+    except OSError:
+        # Catch the "Address already in use" error and exit cleanly
+        print(f"{my_now()} -- UDP collection instance already running on this port {UDP_PORT}", flush=True)
+        sys.exit(0)
     print(f"{my_now()} ++ Listening for UDP NMEA on port {UDP_PORT}...", flush=True)
 
     last_day = None
