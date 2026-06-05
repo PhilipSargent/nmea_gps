@@ -127,7 +127,7 @@ def main():
                         target_dir = parentdir / f"nmea_{dir_suffix}d" / month_dir
                         target_dir.mkdir(parents=True, exist_ok=True)
 
-                        output_filename = target_dir / f"{file_stem}_{dir_suffix}.nmea"
+                        output_filename = target_dir / f"{file_stem}.nmea"
 
                         print(f"{my_now()} ++ Rotating track log.\n -> Path: {output_filename}", flush=True)
                         
