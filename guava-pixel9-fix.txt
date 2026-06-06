@@ -1,0 +1,13 @@
+# Set the SSID explicitly
+uci set wireless.sta.ssid='PhilipPixel9'
+
+# Manually bind the exact hardware MAC address of the phone's hotspot
+uci set wireless.sta.bssid='56:44:C6:3F:DD:41'  # Replace with your phone hotspot MAC
+
+# Force the encryption parameters to bypass the script mismatch
+uci set wireless.sta.encryption='psk2'
+uci set wireless.sta.ieee80211w='0' # Forcefully disables PMF constraints on the client end
+
+# Save and force the hardware up
+uci commit wireless
+wifi

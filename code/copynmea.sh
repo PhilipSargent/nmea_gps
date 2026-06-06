@@ -22,6 +22,10 @@ echo "rsync /root/nmea_logs/ LOGS" >>../nmea_logs/nmealogger_rsync-ok.txt
 rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_logs/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_logs >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
 #pkill "ssh-agent -s"
 
+echo "rsync /root/nmea_data/ DATA-UDP `date`" >>../nmea_logs/nmealogger_rsync-ok.txt
+rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_304d/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_304d >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
+rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_305d/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_305d >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
+
 # reverse copy from server to laptop:
 # rsync -avz -e "ssh -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"   root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data ../nmea_data
 
