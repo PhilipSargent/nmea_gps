@@ -133,7 +133,7 @@ def main():
                         
                         current_track = logsdir / f"current_nmea_file_{dir_suffix}.txt"
                         with open(current_track, 'w') as f:
-                            f.write(f"nmea_{dir_suffix}d/{month_dir}/{file_stem}_{dir_suffix}.nmea")
+                            f.write(f"nmea_{dir_suffix}d/{month_dir}/{file_stem}.nmea")
 
                         # Open the single unified processed output file
                         af = open(output_filename, 'ab', buffering=FILE_BUFSIZE)
