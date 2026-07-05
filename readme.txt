@@ -39,16 +39,21 @@ use FileZilla to get the files from djangotest nmea
 run nmeastich to collect all the days of a month to one file per day
 run like this:
 cd gps/nmea_mirror/nmea_gps
-uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_data/2025-11 nmea.stitch
+uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_data/2026-06 nmea.stitch
+uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_304d/2026-06 nmea.stitch
+uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_305d/2026-06 nmea.stitch
 
 run nmeagpx to convert the day files to gpx files and produce a monthly summary
 run like this:
 cd gps/nmea_mirror/nmea_gps
-uv run nmeagpx.py /home/philip/gps/nmea_data/2024-12/ '.day' '.nmea'
+uv run nmeagpx.py /home/philip/gps/nmea_data/2026-06/ '.day' '.nmea'
+uv run nmeagpx.py /home/philip/gps/nmea_mirror/nmea_304d/2026-06/ '.day' '.nmea'
+uv run nmeagpx.py /home/philip/gps/nmea_mirror/nmea_305d/2026-06/ '.day' '.nmea'
+
 
 # how it is deployed #
 Some of the scripts run on a GL.INET "mango" router. This router is permanently mounted on the boat
-and recieves NMEA sentences by tcp from the Quark-Elec A026 AIS/GPS box which has a VHF antenna for AIS
+and receives NMEA sentences by tcp from the Quark-Elec A026 AIS/GPS box which has a VHF antenna for AIS
 and a GPS antenna.
 [to be done: modify this to accept UDP NMEA statements from two mobile phones.]
 

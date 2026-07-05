@@ -36,7 +36,7 @@ M_PER_NM = 1852 # 1929 First International Extraordinary Hydrographic Conference
 JIGGLE = 3.4/5 # anything within this is considered the "same" point. This is the fifth-width of the boat
 #JIGGLE = 0.01
 STACK_MINUTES = 90 # how long we wait before flushing the stack
-MAXSTACK = 400 # maxium bumber of points to amalgamate even if they are very close
+MAXSTACK = 1600 # maxium bumber of points to amalgamate even if they are very close
 MIDNIGHT = time(0, 0, 0, 0) # midnight
 NEAR_MIDNIGHT = time(0, 23, 59, 0) # one minute to midnight
 NEAR_DAYLENGTH = timedelta(hours=23) # nearly a whole day
@@ -158,7 +158,8 @@ class Stack:
         if full:
             self.full_count += 1
             duration = self.duration() 
-            print(f"++ Stack full #{self.full_count}  box: {self.diameter():.1f} m  {duration} h:m:s from {self.first_date().strftime('%T %Z')}")        
+            if self.diameter() > JIGGLE * 2:
+                print(f"++ Stack {MAXSTACK} full #{self.full_count}  box dia.: {self.diameter():.1f} m  {duration} h:m:s from {self.first_date().strftime('%T %Z')}")        
         return full
 
     def pop(self):
@@ -499,7 +500,7 @@ class NMEATracker:
 
                         msg_item = (msg, dat)
                         if time_diff(msg.time, prev_time) > ONE_HOUR: 
-                            print(f".. Gap, start new <trkseg> {time_diff(msg.time, prev_time)} line:{n:4} {Path(self._infile.name).stem}")
+                            print(f".. Gap, start new <trkseg> {Path(self._infile.name).stem} gap = {time_diff(msg.time, prev_time)} h:m:s line:{n:5}  ")
                             self.restart_stack(msg_item)
                             self._trkfile.write(get_trkseg())
                             month_filehandle.write(get_trkseg())
@@ -518,7 +519,7 @@ class NMEATracker:
 
         self.write_gpx_tlr()
 
-        print(f"{i:6d} GGA message{'' if i == 1 else 's'} -> {tp} trackpoints  {self._filename.name} -> {self._trkfname.name} box: {bb.diameter():.1f} m ~{bb.diameter()/M_PER_NM:6.2f} NM")
+        print(f"{i:6d} GGA message{'' if i == 1 else 's'} -> {tp} trackpoints  {self._filename.name} -> {self._trkfname.name} box dia.: {bb.diameter():.1f} m ~{bb.diameter()/M_PER_NM:6.2f} NM")
         return bb
 
     def write_gpx_hdr(self):
@@ -655,7 +656,7 @@ def main(indir, midsuffix, insuffix):
     # Print summary data in 'trips' for each file (i.e. each day) 
     for t in trips:
         name, diam, diag_R, diag_L, n_stash = t
-        print(f"{name} box: ~{diam/M_PER_NM:5.1f} NM {n_stash} discards") 
+        print(f"{name} box dia.: ~{diam/M_PER_NM:5.1f} NM {n_stash} discards") 
     print(f"Finished all files, max stack used: {stack_max}")
     
 
