@@ -30,8 +30,8 @@ TZ = ZoneInfo('Europe/Athens')
 
 # --- Parse Command Line Arguments ---
 if len(sys.argv) != 2:
-    print("Usage: uv run nmeajogger.py <port_number>")
-    print("Example: uv run nmeajogger.py 30305")
+    print("Usage: python3 nmeajogger.py <port_number>")
+    print("Example: python3 nmeajogger.py 30305")
     sys.exit(1)
 
 UDP_PORT = int(sys.argv[1])
@@ -73,6 +73,7 @@ def main():
         sock.bind((UDP_IP, UDP_PORT))
     except OSError:
         # Catch the "Address already in use" error and exit cleanly
+        # This seems to be happening every 14 minutes?! But the watchdog start is every 5 minutes.
         print(f"{my_now()} -- UDP collection instance already running on this port {UDP_PORT}", flush=True)
         sys.exit(0)
     print(f"{my_now()} ++ Listening for UDP NMEA on port {UDP_PORT}...", flush=True)
