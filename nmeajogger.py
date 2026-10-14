@@ -73,7 +73,7 @@ def main():
         sock.bind((UDP_IP, UDP_PORT))
     except OSError:
         # Catch the "Address already in use" error and exit cleanly
-        # This seems to be happening every 14 minutes?! But the watchdog start is every 5 minutes.
+        # This seems to be happening every 14 minutes?! But the watchdog start is every 2 minutes.
         print(f"{my_now()} -- UDP collection instance already running on this port {UDP_PORT}", flush=True)
         sys.exit(0)
     print(f"{my_now()} ++ Listening for UDP NMEA on port {UDP_PORT}...", flush=True)

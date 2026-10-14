@@ -39,16 +39,16 @@ use FileZilla to get the files from djangotest nmea
 run nmeastich to collect all the days of a month to one file per day
 run like this:
 cd gps/nmea_mirror/nmea_gps
-uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_data/2026-06 nmea.stitch
-uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_304d/2026-06 nmea.stitch
-uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_305d/2026-06 nmea.stitch
+uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_data/2026-09 nmea.stitch
+uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_304d/2026-09 nmea.stitch
+uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_305d/2026-09 nmea.stitch
 
 run nmeagpx to convert the day files to gpx files and produce a monthly summary
 run like this:
 cd gps/nmea_mirror/nmea_gps
-uv run nmeagpx.py /home/philip/gps/nmea_data/2026-06/ '.day' '.nmea'
-uv run nmeagpx.py /home/philip/gps/nmea_mirror/nmea_304d/2026-06/ '.day' '.nmea'
-uv run nmeagpx.py /home/philip/gps/nmea_mirror/nmea_305d/2026-06/ '.day' '.nmea'
+uv run nmeagpx.py /home/philip/gps/nmea_mirror/nmea_data/2026-09/ '.day' '.nmea'
+uv run nmeagpx.py /home/philip/gps/nmea_mirror/nmea_304d/2026-09/ '.day' '.nmea'
+uv run nmeagpx.py /home/philip/gps/nmea_mirror/nmea_305d/2026-09/ '.day' '.nmea'
 
 
 # how it is deployed #

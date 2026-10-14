@@ -9,26 +9,35 @@ ssh-add /root/.ssh/id_papaya
 cd /root/nmea_data
 # wc /root/nmea_data/*/*.nmea
 
+# do not need this any more with the new 2026 proxy:
+# "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" 
+
 touch ../nmea_logs/nmealogger_rsync-start.txt
 echo "`date` uploading nmea data" >>../nmea_logs/nmealogger_rsync-ok.txt
 
-# this is good for 2024 to 2099
+# this is good for 2024 to 2099 - for folders
+# needed chnaging for Mythic Beasts chnage in proxy server in October 2026:
+# ssh -p 41061 sshproxy.mythic-beasts.com
 echo "rsync /root/nmea_data/ DATA `date`" >>../nmea_logs/nmealogger_rsync-ok.txt
-rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
+rsync -avz -e "ssh -p 41061"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
+
 echo "rsync /root/nmea_rawd/ RAW " >>../nmea_logs/nmealogger_rsync-ok.txt
-rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_rawd/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_rawd >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
+rsync -avz -e "ssh -p 41061"  /root/nmea_rawd/  root@sshproxy.mythic-beasts.com:/home/nmea/nmea_rawd >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
 
 echo "rsync /root/nmea_data/ DATA-UDP `date`" >>../nmea_logs/nmealogger_rsync-ok.txt
-rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_304d/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_304d >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
-rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_305d/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_305d >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
+rsync -avz -e "ssh -p 41061"  /root/nmea_303d/  root@sshproxy.mythic-beasts.com:/home/nmea/nmea_303d >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
+
+rsync -avz -e "ssh -p 41061"  /root/nmea_304d/  root@sshproxy.mythic-beasts.com:/home/nmea/nmea_304d >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
+
+rsync -avz -e "ssh -p 41061"  /root/nmea_305d/  root@sshproxy.mythic-beasts.com:/home/nmea/nmea_305d >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
 
 echo "rsync /root/nmea_logs/ LOGS" >>../nmea_logs/nmealogger_rsync-ok.txt
-rsync -avz -e "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"  /root/nmea_logs/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_logs >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
+rsync -avz -e "ssh -p 41061"  /root/nmea_logs/  root@sshproxy.mythic-beasts.com:/home/nmea/nmea_logs >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
 #pkill "ssh-agent -s"
 
 
 # reverse copy from server to laptop:
-# rsync -avz -e "ssh -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"   root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data ../nmea_data
+# rsync -avz -e "ssh -p 10037"   root@sshproxy.mythic-beasts.com:/home/nmea/nmea_data ../nmea_data
 
 echo nmea data copy ran ok.
 # Here's the part you need to append, provided here separately for easy copy/pasting:
