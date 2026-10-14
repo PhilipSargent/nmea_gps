@@ -1,0 +1,60 @@
+ubus call repeater connect '{
+  "ssid": "Poros Marine SA",
+  "key": "1010101010",
+  "device": "mt7628",
+  "band": "2g",
+  "remember": true
+}'
+ubus call repeater connect '{
+  "ssid": "Souvlaki corner",
+  "key": "corner11 ",
+  "device": "mt7628",
+  "band": "2g",
+  "remember": true
+}'
+# make connection less flakey
+# Update main parameters using index [@main[0]]
+uci set repeater.@main[0].scan_interval='300'
+uci set repeater.@main[0].switch_interval='120'
+uci set repeater.@main[0].antijam='0'
+
+# Update the PhilipPixel9 entry (the second network block, index [1])
+uci set repeater.@network[1].device='mt7628'
+uci set repeater.@network[1].band='2g'
+uci set repeater.@network[1].encryption='psk2'
+
+# Commit changes to disk and restart the repeater daemon
+uci commit repeater
+/etc/init.d/repeater restart
+
+ ubus call repeater scan '{"action":"start"}' | grep -E "ssid|bssid|channel"
+
+# force immediate reconnection
+ubus call repeater connect '{"ssid":"PhilipPixel9","key":"obafgkmrns","device":"mt7628","band":"2g","remember":true}'
+
+# enable ch 13
+ uci set wireless.mt7628.region='1'
+ uci set wireless.mt7628.country='GB'
+
+# This next bit is the key that makes it work.
+# 1. On the pixel9 select 2.4/5 Ghz compatibility, which enablesd WPA2-Personal security.
+# 2. on the Mango:
+# Set ieee80211w='0' (disable PMF expectation on OpenWrt's client interface) and hard-code the # radio channel to Channel 13 so apcli0 doesn't attempt to jump channels while associating:
+# 1. Disable PMF / 802.11w requirements on the client interface
+uci set wireless.sta.ieee80211w='0'
+
+# 2. Set the physical radio channel explicitly to 13 to match the Pixel
+uci set wireless.mt7628.channel='13'
+
+uci commit wireless
+wifi reload
+
+# Verify both settings are committed to startup storage
+uci get wireless.sta.ieee80211w
+uci get wireless.mt7628.channel
+uci set wireless.sta.ieee80211w='0'
+uci commit wireless
+
+iwpriv ra0 get_site_survey
+
+ubus call repeater status
