@@ -11,13 +11,15 @@ cd /root/nmea_data
 
 # do not need this any more with the new 2026 proxy:
 # "ssh -4 -p 10037 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" 
+# needed chnaging for Mythic Beasts change in proxy server in October 2026:
+# ssh -p 41061 sshproxy.mythic-beasts.com
 
 touch ../nmea_logs/nmealogger_rsync-start.txt
 echo "`date` uploading nmea data" >>../nmea_logs/nmealogger_rsync-ok.txt
+echo "`date` start" >>../nmea_logs/nmealogger_rsync-error.txt
 
 # this is good for 2024 to 2099 - for folders
-# needed chnaging for Mythic Beasts chnage in proxy server in October 2026:
-# ssh -p 41061 sshproxy.mythic-beasts.com
+
 echo "rsync /root/nmea_data/ DATA `date`" >>../nmea_logs/nmealogger_rsync-ok.txt
 rsync -avz -e "ssh -p 41061"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
 
