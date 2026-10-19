@@ -21,7 +21,7 @@ echo "`date` start" >>../nmea_logs/nmealogger_rsync-error.txt
 # this is good for 2024 to 2099 - for folders
 
 echo "rsync /root/nmea_data/ DATA `date`" >>../nmea_logs/nmealogger_rsync-ok.txt
-rsync -avz -e "ssh -p 41061"  /root/nmea_data/  root@admin.djangotest.vs.mythic-beasts.com:/home/nmea/nmea_data >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
+rsync -avz -e "ssh -p 41061"  /root/nmea_data/  root@sshproxy.mythic-beasts.com:/home/nmea/nmea_data >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
 
 echo "rsync /root/nmea_rawd/ RAW " >>../nmea_logs/nmealogger_rsync-ok.txt
 rsync -avz -e "ssh -p 41061"  /root/nmea_rawd/  root@sshproxy.mythic-beasts.com:/home/nmea/nmea_rawd >>../nmea_logs/nmealogger_rsync-ok.txt 2>>../nmea_logs/nmealogger_rsync-error.txt
