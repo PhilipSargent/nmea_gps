@@ -135,7 +135,14 @@ def check_file_and_nmea_dates(filepaths):
             mins = get_minutes_since_midnight_eet(timestamp)
             overdue = mins - offset*60
             if overdue > ALLOWANCE:
-                print(f"{filepath.name} UTC date MISMATCH: OVERDUE: {overdue:.3} minutes")
+                # Convert minutes to a timedelta object
+                td = datetime.timedelta(minutes=overdue)
+
+                # Format as HH:MM:SS
+                formatted_time = str(td).split(".")[0]  # strips microseconds if any exist
+
+                print(f"{filepath.name} UTC date MISMATCH: OVERDUE: {formatted_time}")
+                
             
         
     mismatches = 0

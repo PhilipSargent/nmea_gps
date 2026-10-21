@@ -1,3 +1,7 @@
+BEFORE you start, make sure that the phone (Pixel9) is NOT connatec to wifi but is only
+getting its internet connection via its SIM card. Otehrwise the 2.4GHz radio is out of action
+for getting the Papaya (second mango) to work with it.
+
 ubus call repeater connect '{
   "ssid": "Poros Marine SA",
   "key": "1010101010",

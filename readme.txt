@@ -38,10 +38,13 @@ use FileZilla to get the files from djangotest nmea
 
 run nmeastich to collect all the days of a month to one file per day
 run like this:
+source ~/.bashrc
+
 cd gps/nmea_mirror/nmea_gps
-uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_data/2026-09 nmea.stitch
-uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_304d/2026-09 nmea.stitch
-uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_305d/2026-09 nmea.stitch
+uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_data/2026-10 nmea.stitch
+uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_303d/2026-10 nmea.stitch
+uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_304d/2026-10 nmea.stitch
+uv run nmeastitch.py /home/philip/gps/nmea_mirror/nmea_305d/2026-10 nmea.stitch
 
 run nmeagpx to convert the day files to gpx files and produce a monthly summary
 run like this:

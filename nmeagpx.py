@@ -654,6 +654,7 @@ def main(indir, midsuffix, insuffix):
 
             
     # Print summary data in 'trips' for each file (i.e. each day) 
+    print(f"in {indir}")
     for t in trips:
         name, diam, diag_R, diag_L, n_stash = t
         print(f"{name} box dia.: ~{diam/M_PER_NM:5.1f} NM {n_stash} discards") 
