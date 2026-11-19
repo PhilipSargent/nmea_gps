@@ -124,8 +124,12 @@ def check_file_and_nmea_dates(filepaths):
     in EET, EEST  which is 2 or 3 hours AHEAD of UTC. 
     And the timestamp must be between 00:00 and 02:00 (or 03:00)
     Any other mismatch is an error.
+    ფ pari	
+    ზ zeni
     """
-    ALLOWANCE = 2 # minutes. Less tahn this triggers no warnings.
+    ALLOWANCE = 2 # minutes. Less than this triggers no warnings.
+    GEORGIAN = "ფ pari	ზ zeni"
+    ფზ = 17
     def explain_mismatch():
         if os_utc_str != str(nmea_date): # nmea_date <class 'datetime.date'>
             # But thsi is often because the timestamp on the file is only a few seconds late, 
